@@ -45,10 +45,11 @@ git checkout "$BRANCH"
 curl -fsSL https://claude.ai/install.sh | bash
 export PATH="$HOME/.local/bin:$PATH"
 
-# Python environment
+# Python environment (install outside /workspace to avoid NFS per-user quota)
 pip install uv
-uv venv --python 3.12 ~/.venvs/zombuul
-source ~/.venvs/zombuul/bin/activate
+sudo mkdir -p /opt/venvs && sudo chown zombuul:zombuul /opt/venvs
+uv venv --python 3.12 /opt/venvs/zombuul
+source /opt/venvs/zombuul/bin/activate
 cd "$REPO_DIR"
 uv pip install -e .
 
@@ -78,7 +79,7 @@ fi
 # Write .bash_profile so login shells get venv + tokens
 cat > ~/.bash_profile << 'PROFILE'
 export PATH="$HOME/.local/bin:$PATH"
-source ~/.venvs/zombuul/bin/activate
+source /opt/venvs/zombuul/bin/activate
 PROFILE
 
 if [ -n "$HF_TOKEN" ]; then
