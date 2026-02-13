@@ -45,6 +45,11 @@ git checkout "$BRANCH"
 curl -fsSL https://claude.ai/install.sh | bash
 export PATH="$HOME/.local/bin:$PATH"
 
+# Caches outside NFS home to avoid per-user quota
+export UV_CACHE_DIR=/opt/uv_cache
+export HF_HOME=/opt/hf_cache
+sudo mkdir -p /opt/uv_cache /opt/hf_cache && sudo chown zombuul:zombuul /opt/uv_cache /opt/hf_cache
+
 # Python environment (install outside /workspace to avoid NFS per-user quota)
 pip install uv
 sudo mkdir -p /opt/venvs && sudo chown zombuul:zombuul /opt/venvs
@@ -79,6 +84,8 @@ fi
 # Write .bash_profile so login shells get venv + tokens
 cat > ~/.bash_profile << 'PROFILE'
 export PATH="$HOME/.local/bin:$PATH"
+export UV_CACHE_DIR=/opt/uv_cache
+export HF_HOME=/opt/hf_cache
 source /opt/venvs/zombuul/bin/activate
 PROFILE
 
