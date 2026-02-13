@@ -10,7 +10,7 @@ The argument $ARGUMENTS points to a top-level experiment directory: `experiments
 4. **Read the latest report in full.** This is the most important input — read it directly, not via summary.
 5. **Check if done.** If the overall goal is convincingly addressed — positive results or enough negative evidence to close the question — output <promise>RESEARCH_COMPLETE</promise> and stop.
 6. **Design the next experiment.** Write a focused spec at `experiments/{name}/{follow_up_name}/spec.md`.
-7. **Run the experiment.** Invoke `/research-loop experiments/{name}/{follow_up_name}/spec.md`.
+7. **Run the experiment.** Invoke `/launch-research-loop experiments/{name}/{follow_up_name}/spec.md`.
 8. **Stop.** You will be re-invoked automatically.
 
 ## Designing follow-up experiments

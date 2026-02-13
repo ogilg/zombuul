@@ -23,4 +23,4 @@ Spin up a RunPod GPU pod interactively.
 7. **Remind the user**:
    - The setup script is running in the background on the pod (clones repo, installs deps, creates `zombuul` user). Check `/var/log/pod_setup.log` on the pod for progress.
    - Once setup is done, run `su - zombuul` then `cd /workspace/repo && claude --dangerously-skip-permissions --effort high`.
-   - They can run `/runpod-stop` to terminate the pod when done.
+   - They can run `/stop-runpod` to terminate the pod when done.

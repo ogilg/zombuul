@@ -46,7 +46,7 @@ All scripts you write during this loop go here — experiment runners, analysis,
 
 ## Report style guide
 
-Scannable — someone should grasp the full arc in 30 seconds. Headlines over prose, tables over text, dead ends in one line each. Include plots at key checkpoints (save to `assets/`). Include enough detail to reproduce (parameters, prompts, configs) but stay concise. The `/review-report` subagent will catch clarity issues — focus on content first.
+Scannable — someone should grasp the full arc in 30 seconds. Headlines over prose, tables over text, dead ends in one line each. Include plots at key checkpoints (save to `assets/`). Include enough detail to reproduce (parameters, prompts, configs) but stay concise. The `/review-experiment-report` subagent will catch clarity issues — focus on content first.
 
 ## Workflow
 
@@ -54,5 +54,5 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 2. **Create a branch.** `git checkout -b research-loop/{experiment_name}`.
 3. Read prior work (parent experiment's `report.md` if this is a follow-up). Create scripts workspace, report, and running log.
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
-5. **Review the report.** Launch a subagent (Task tool, subagent_type="general-purpose") with `/review-report`, passing the path to `report.md`. Do not skip this step.
+5. **Review the report.** Launch a subagent (Task tool, subagent_type="general-purpose") with `/review-experiment-report`, passing the path to `report.md`. Do not skip this step.
 6. **Push results.** Commit all outputs and push: `git push -u origin research-loop/{experiment_name}`.

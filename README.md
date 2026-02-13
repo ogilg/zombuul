@@ -4,7 +4,7 @@ Autonomous research loops on GPU pods with Claude Code. Write an experiment spec
 
 ## What it does
 
-You write a markdown spec describing a research question. Claude Code runs the experiment autonomously on a RunPod GPU — baseline, iterations, plots, report. When it finishes, the pod terminates. Optionally, a ralph loop chains experiments: each report feeds into the next, building a sequence of experiments that converge on an answer.
+You write a markdown spec describing a research question. Claude Code runs the experiment autonomously on a RunPod GPU — baseline, iterations, plots, report. When it finishes, the pod terminates. Optionally, ralph mode chains experiments: each report feeds into the next, building a sequence of experiments that converge on an answer.
 
 ![Architecture](architecture.png)
 
@@ -12,12 +12,12 @@ You write a markdown spec describing a research question. Claude Code runs the e
 
 | Command | What it does |
 |---------|-------------|
-| `/research-loop` | Run one experiment autonomously from spec to pushed report |
-| `/research-ralph` | Chain experiments — each builds on the last until the goal is met |
-| `/review-report` | Rewrite a report for clarity (subagent, no code context) |
-| `/runpod-research` | Spin up a GPU pod and launch a research loop on it |
-| `/runpod` | Spin up a GPU pod interactively |
-| `/runpod-stop` | List and terminate pods |
+| `/launch-research-loop` | Run one experiment autonomously from spec to pushed report |
+| `/launch-research-ralph` | Ralph mode — chain experiments, each building on the last, until the goal is met |
+| `/review-experiment-report` | Rewrite a report for clarity (subagent, no code context) |
+| `/launch-research-pod` | Spin up a GPU pod and launch a research loop on it |
+| `/launch-runpod` | Spin up a GPU pod interactively |
+| `/stop-runpod` | List and terminate pods |
 
 ## Context management
 
@@ -36,12 +36,12 @@ All commands and scripts live in this repo:
 zombuul/
 ├── .claude-plugin/plugin.json
 ├── commands/
-│   ├── research-loop.md
-│   ├── research-ralph.md
-│   ├── review-report.md
-│   ├── runpod-research.md
-│   ├── runpod.md
-│   └── runpod-stop.md
+│   ├── launch-research-loop.md
+│   ├── launch-research-ralph.md
+│   ├── review-experiment-report.md
+│   ├── launch-research-pod.md
+│   ├── launch-runpod.md
+│   └── stop-runpod.md
 ├── scripts/
 │   ├── runpod_ctl.py       # RunPod API wrapper (create, list, stop, SSH)
 │   └── pod_setup.sh        # pod bootstrap (clone, deps, claude, auth)
@@ -76,7 +76,7 @@ GIT_USER_EMAIL=you@example.com
 
 This gets SCP'd to the pod during setup. The pod setup script reads git identity and tokens from it.
 
-### For chained mode (optional)
+### For ralph mode (optional)
 
 Install the ralph-wiggum plugin from `anthropics/claude-code`:
 
@@ -88,7 +88,7 @@ Install the ralph-wiggum plugin from `anthropics/claude-code`:
 ## Launch
 
 ```
-/runpod-research experiments/my_question/spec.md
+/launch-research-pod experiments/my_question/spec.md
 ```
 
 The plugin:
