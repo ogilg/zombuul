@@ -51,7 +51,7 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 ## Workflow
 
 1. **Do not ask clarification questions.** Make reasonable assumptions and note them.
-2. **Create a branch.** `git checkout -b research-loop/{experiment_name}`.
+2. **Branch once.** If you're already on a `research-loop/` branch, stay on it. Otherwise, create one: `git checkout -b research-loop/{experiment_name}`.
 3. Read prior work (parent experiment's `report.md` if this is a follow-up). Create scripts workspace, report, and running log.
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
 5. **Review the report.** Launch a subagent (Task tool, subagent_type="general-purpose") with `/review-experiment-report`, passing the path to `report.md`. Do not skip this step.

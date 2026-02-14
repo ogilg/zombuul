@@ -262,7 +262,7 @@ def main():
     create.add_argument("--repo-url", default=None, help="Git repo URL to clone on pod (default: current repo's origin)")
     create.add_argument("--branch", default=None, help="Git branch to checkout on pod (default: current branch)")
     create.add_argument("--volume-gb", type=int, default=50)
-    create.add_argument("--disk-gb", type=int, default=20)
+    create.add_argument("--disk-gb", type=int, default=200)
 
     stop = sub.add_parser("stop", help="Terminate a pod")
     stop.add_argument("pod_id")

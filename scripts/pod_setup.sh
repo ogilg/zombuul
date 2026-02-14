@@ -57,6 +57,7 @@ uv venv --python 3.12 /opt/venvs/zombuul
 source /opt/venvs/zombuul/bin/activate
 cd "$REPO_DIR"
 uv pip install -e .
+uv cache clean
 
 # Git config (from .env if present)
 if [ -f "$REPO_DIR/.env" ]; then
