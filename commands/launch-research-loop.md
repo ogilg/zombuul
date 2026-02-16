@@ -55,4 +55,4 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 3. Read prior work (parent experiment's `report.md` if this is a follow-up). Create scripts workspace, report, and running log.
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
 5. **Review the report.** Launch a subagent (Task tool, subagent_type="general-purpose") with `/review-experiment-report`, passing the path to `report.md`. Do not skip this step.
-6. **Push results.** Commit all outputs and push: `git push -u origin research-loop/{experiment_name}`.
+6. **Push results.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results) — and push: `git push -u origin research-loop/{experiment_name}`. The `.gitignore` already excludes truly large files (activations `.npz`, embeddings `.npy`, etc.). If you generate data files not covered by `.gitignore` that exceed ~50MB, add them to `.gitignore` rather than committing.

@@ -15,12 +15,11 @@ Spin up a RunPod GPU pod interactively.
 
 4. **Create the pod**: Run `python /Users/oscargilg/Dev/zombuul/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --image "<image>"` **in the background**. Use $ARGUMENTS as the pod name if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, extracts Claude Code credentials from Keychain, then SCPs and runs `pod_setup.sh`.
 
-5. **Report the SSH command** to the user once the pod is ready.
-
-6. **SCP the project .env**: If a `.env` file exists in the current working directory, copy it to the pod:
+5. **SCP the project .env**: If a `.env` file exists in the current working directory, copy it to the pod:
    `scp -P <port> -i ~/.ssh/id_ed25519 .env root@<ip>:/workspace/repo/.env`
 
-7. **Remind the user**:
+6. **Report to the user**:
+   - SSH command: `ssh root@<ip> -p <port> -i ~/.ssh/id_ed25519`
    - The setup script is running in the background on the pod (clones repo, installs deps, creates `zombuul` user). Check `/var/log/pod_setup.log` on the pod for progress.
    - Once setup is done, run `su - zombuul` then `cd /workspace/repo && claude --dangerously-skip-permissions --effort high`.
    - They can run `/stop-runpod` to terminate the pod when done.

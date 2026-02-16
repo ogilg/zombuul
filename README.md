@@ -48,7 +48,7 @@ zombuul/
 └── architecture.png
 ```
 
-Commands are symlinked into `~/.claude/commands/` so they're available globally. Edit once in `~/Dev/zombuul/commands/`, changes are live everywhere.
+Zombuul is a Claude Code plugin. Install it, and commands are available globally.
 
 ## Setup
 
@@ -58,12 +58,6 @@ Commands are symlinked into `~/.claude/commands/` so they're available globally.
 - Your repo has a `pyproject.toml` (the pod runs `uv pip install -e .`)
 - SSH key at `~/.ssh/id_ed25519`
 - RUNPOD_API_KEY in `~/.claude/.env`
-
-### Symlink commands
-
-```bash
-ls ~/Dev/zombuul/commands/ | xargs -I{} ln -sfn ~/Dev/zombuul/commands/{} ~/.claude/commands/{}
-```
 
 ### Create a `.env` in your repo root
 
