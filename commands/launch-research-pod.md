@@ -25,14 +25,14 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no .env root@<IP>:/workspace/repo/.env`
 
 8. **Launch the research loop**: To avoid quoting issues, write a launch script to the pod, then run it. Use the command the user chose in step 2 (`/launch-research-loop` or `/launch-research-ralph`):
-   - Use `ssh` to write a script on the pod: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "cat > /tmp/launch_research.sh << 'SCRIPT'\ncd /workspace/repo && claude --dangerously-skip-permissions --effort high -p '/<chosen_command> $ARGUMENTS'\nrunpodctl stop pod $RUNPOD_POD_ID\nSCRIPT"`
-   - Then launch it in tmux as zombuul: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "su - zombuul -c 'tmux new-session -d -s research \"bash /tmp/launch_research.sh\"'"`
-   - If the tmux launch fails, debug and retry with adjusted commands. The goal is a detached tmux session named `research` running as `zombuul`.
+   - Use `ssh` to write a script on the pod: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "cat > /tmp/launch_research.sh << 'SCRIPT'\nsource ~/.bash_profile && cd /workspace/repo && IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high -p '/<chosen_command> $ARGUMENTS'\nrunpodctl stop pod $RUNPOD_POD_ID\nSCRIPT"`
+   - Then launch it in tmux: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "tmux new-session -d -s research 'bash /tmp/launch_research.sh'"`
+   - If the tmux launch fails, debug and retry with adjusted commands. The goal is a detached tmux session named `research`.
 
-9. **Verify**: Check that the tmux session is running: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "su - zombuul -c 'tmux list-sessions'"`
+9. **Verify**: Check that the tmux session is running: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "tmux list-sessions"`
 
 10. **Report to user**:
    - The research loop is running in tmux session `research` on the pod.
    - SSH command: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519`
-   - To watch progress: `su - zombuul -c 'tmux attach -t research'`
+   - To watch progress: `tmux attach -t research`
    - The pod will auto-terminate after the research loop finishes. Run `/stop-runpod` to terminate early if needed.

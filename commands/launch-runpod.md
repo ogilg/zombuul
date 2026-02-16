@@ -20,6 +20,6 @@ Spin up a RunPod GPU pod interactively.
 
 6. **Report to the user**:
    - SSH command: `ssh root@<ip> -p <port> -i ~/.ssh/id_ed25519`
-   - The setup script is running in the background on the pod (clones repo, installs deps, creates `zombuul` user). Check `/var/log/pod_setup.log` on the pod for progress.
-   - Once setup is done, run `su - zombuul` then `cd /workspace/repo && claude --dangerously-skip-permissions --effort high`.
+   - The setup script is running in the background on the pod (clones repo, installs deps). Check `/var/log/pod_setup.log` on the pod for progress.
+   - Once setup is done, run `source ~/.bash_profile && cd /workspace/repo && IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high`.
    - They can run `/stop-runpod` to terminate the pod when done.

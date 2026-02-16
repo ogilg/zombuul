@@ -89,7 +89,7 @@ The plugin:
 1. Infers the repo URL from `git remote get-url origin`
 2. Spins up a pod, clones the repo, installs deps via `uv pip install -e .`
 3. Copies `.env` and Claude Code credentials to the pod
-4. Launches the research loop headlessly in tmux
+4. Launches the research loop in sandboxed mode (`IS_SANDBOX=1`) headlessly in tmux
 5. Pod auto-terminates when done
 
 ## Customization
