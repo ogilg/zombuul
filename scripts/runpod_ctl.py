@@ -204,7 +204,7 @@ def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, bran
     ip, port = wait_for_ssh(pod_id)
     if not ip:
         print(f"Timed out waiting for pod {pod_id}. Check RunPod dashboard.")
-        print("Run: python /Users/oscargilg/Dev/zombuul/scripts/runpod_ctl.py stop " + pod_id)
+        print(f"Run: python {os.path.abspath(__file__)} stop " + pod_id)
         return
 
     print(f"\nPod is ready!")
