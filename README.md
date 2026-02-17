@@ -44,19 +44,4 @@ Claude Code spins up a RunPod GPU, clones your repo, runs the experiment autonom
 
 ## How it works
 
-```
-You                          Pod (RunPod GPU)
- │                            │
- │  /launch-research-pod      │
- │  spec.md ─────────────────>│ clone repo
- │                            │ install deps
- │                            │ read spec
- │                            │ run baseline
- │                            │ iterate (code, analysis, plots)
- │                            │ write report.md
- │                            │ push branch
- │  <─────────────────────────│ terminate
- │                            │
- │  git pull
- │  experiments/my_question/report.md
-```
+![Architecture](architecture.png)
