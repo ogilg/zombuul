@@ -1,6 +1,6 @@
 # Zombuul
 
-Autonomous research loops on GPU pods with Claude Code.
+Autonomous research loops on GPU pods with claude --dangerously-skip-permissions.
 
 ## Install
 
@@ -12,7 +12,7 @@ Autonomous research loops on GPU pods with Claude Code.
 
 ## Usage
 
-1. Write an experiment spec — a markdown file describing your research question, methods, and success criteria
+1. Write an experiment spec — spend time making it good
 2. Launch it:
 
 ```
