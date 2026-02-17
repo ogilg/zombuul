@@ -1,112 +1,62 @@
 # Zombuul
 
-Autonomous research loops on GPU pods with Claude Code. Write an experiment spec, launch it, come back to a report.
+Autonomous research loops on GPU pods with Claude Code.
 
 ## Install
 
 ```
 /plugin marketplace add ogilg/zombuul
 /plugin install zombuul@ogilg-marketplace
+/zombuul:setup
 ```
 
-Then run `/zombuul:setup` to get started.
+## Usage
 
-## What it does
+1. Write an experiment spec — a markdown file describing your research question, methods, and success criteria
+2. Launch it on a GPU pod:
 
-You write a markdown spec describing a research question. Claude Code runs the experiment autonomously on a RunPod GPU — baseline, iterations, plots, report. When it finishes, the pod terminates. Optionally, ralph mode chains experiments: each report feeds into the next, building a sequence of experiments that converge on an answer.
+```
+/zombuul:launch-research-pod experiments/my_question/spec.md
+```
 
-![Architecture](architecture.png)
+Claude Code spins up a RunPod GPU, clones your repo, runs the experiment autonomously, pushes a report, and terminates the pod.
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `/launch-research-loop` | Run one experiment autonomously from spec to pushed report |
-| `/launch-research-ralph` | Ralph mode — chain experiments, each building on the last, until the goal is met |
-| `/review-experiment-report` | Rewrite a report for clarity (subagent, no code context) |
-| `/launch-research-pod` | Spin up a GPU pod and launch a research loop on it |
-| `/launch-runpod` | Spin up a GPU pod interactively |
-| `/stop-runpod` | List and terminate pods |
+| `/zombuul:launch-research-pod` | Launch an experiment on a GPU pod |
+| `/zombuul:launch-research-loop` | Run an experiment locally (no pod) |
+| `/zombuul:launch-research-ralph` | Chain experiments — each builds on the last |
+| `/zombuul:launch-runpod` | Spin up a pod without launching an experiment |
+| `/zombuul:stop-runpod` | List and terminate pods |
+| `/zombuul:setup` | Interactive onboarding |
 
-## Context management
+## Setup details
 
-The main challenge with long-running autonomous agents is context pollution. Zombuul addresses this at several levels:
+`/zombuul:setup` handles all of this, but for reference:
 
-- **Plotting** delegated to subagents (matplotlib code never enters main context)
-- **Report review** delegated to a subagent that only sees spec + report (no code)
-- **Running log** is write-only during session (recovery mechanism, never re-read)
-- **Ralph synthesis**: older reports summarized by subagent, only latest report read in full
-
-## Directory layout
-
-All commands and scripts live in this repo:
-
-```
-zombuul/
-├── .claude-plugin/
-│   ├── plugin.json
-│   └── marketplace.json
-├── commands/
-│   ├── launch-research-loop.md
-│   ├── launch-research-ralph.md
-│   ├── review-experiment-report.md
-│   ├── launch-research-pod.md
-│   ├── launch-runpod.md
-│   └── stop-runpod.md
-├── skills/
-│   └── setup/SKILL.md      # interactive onboarding wizard
-├── scripts/
-│   ├── runpod_ctl.py       # RunPod API wrapper (create, list, stop, SSH)
-│   └── pod_setup.sh        # pod bootstrap (clone, deps, claude, auth)
-└── architecture.png
-```
-
-Zombuul is a Claude Code plugin. Install it, and commands are available globally.
-
-## Setup
-
-### Prerequisites
-
-- `pip install runpod` locally (for the RunPod API client)
-- Your repo has a `pyproject.toml` (the pod runs `uv pip install -e .`)
+- `pip install runpod` or `uv pip install runpod`
 - SSH key at `~/.ssh/id_ed25519`
-- RUNPOD_API_KEY in `~/.claude/.env`
+- RUNPOD_API_KEY in `.env` or `~/.claude/.env`
+- A `.env` in your repo root with `GH_TOKEN`, `GIT_USER_NAME`, `GIT_USER_EMAIL`
+- Your repo needs a `pyproject.toml` (the pod runs `uv pip install -e .`)
 
-### Create a `.env` in your repo root
-
-```
-GH_TOKEN=<github pat>
-HF_TOKEN=<huggingface token>       # optional
-GIT_USER_NAME=Your Name
-GIT_USER_EMAIL=you@example.com
-```
-
-This gets SCP'd to the pod during setup. The pod setup script reads git identity and tokens from it.
-
-### For ralph mode (optional)
-
-Install the ralph-wiggum plugin from `anthropics/claude-code`:
+## How it works
 
 ```
-/plugin marketplace add anthropics/claude-code
-/plugin    # → Discover → ralph-loop → Install
+You                          Pod (RunPod GPU)
+ │                            │
+ │  /launch-research-pod      │
+ │  spec.md ─────────────────>│ clone repo
+ │                            │ install deps
+ │                            │ read spec
+ │                            │ run baseline
+ │                            │ iterate (code, analysis, plots)
+ │                            │ write report.md
+ │                            │ push branch
+ │  <─────────────────────────│ terminate
+ │                            │
+ │  git pull
+ │  experiments/my_question/report.md
 ```
-
-## Launch
-
-```
-/launch-research-pod experiments/my_question/spec.md
-```
-
-The plugin:
-1. Infers the repo URL from `git remote get-url origin`
-2. Spins up a pod, clones the repo, installs deps via `uv pip install -e .`
-3. Copies `.env` and Claude Code credentials to the pod
-4. Launches the research loop in sandboxed mode (`IS_SANDBOX=1`) headlessly in tmux
-5. Pod auto-terminates when done
-
-## Customization
-
-- **Experiment specs**: freeform markdown in `experiments/`. Include background, methods, success criteria, code to reuse.
-- **Project rules**: add constraints to your CLAUDE.md (e.g., "always use PyTorch", "don't modify src/"). They apply automatically inside the research loop.
-- **Extra Python deps**: add to `pyproject.toml` — the pod runs `uv pip install -e .` which picks them up.
