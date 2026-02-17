@@ -46,7 +46,8 @@ cd "$REPO_DIR" || exit 1
 uv pip install -e .
 uv cache clean
 
-# Git config (from .env if present)
+# Git config (from .env if present — .env is SCP'd by the command after setup,
+# so this only works on re-runs. The launch script also sets git config as a fallback.)
 if [ -f "$REPO_DIR/.env" ]; then
     GIT_USER_NAME=$(grep '^GIT_USER_NAME=' "$REPO_DIR/.env" | cut -d= -f2-)
     GIT_USER_EMAIL=$(grep '^GIT_USER_EMAIL=' "$REPO_DIR/.env" | cut -d= -f2-)
@@ -69,9 +70,9 @@ if [ -n "$GH_TOKEN" ]; then
     echo "Logged into GitHub."
 fi
 
-# Install zombuul plugin via marketplace
-claude plugin marketplace add ogilg/zombuul
-claude plugin install zombuul@ogilg-marketplace
+# Install zombuul plugin via marketplace (may fail if credentials aren't ready yet)
+claude plugin marketplace add ogilg/zombuul || echo "WARNING: marketplace add failed (will retry on first claude session)"
+claude plugin install zombuul@ogilg-marketplace || echo "WARNING: plugin install failed (will retry on first claude session)"
 
 # Write .bash_profile so login shells get venv + tokens
 cat > ~/.bash_profile << 'PROFILE'
