@@ -7,8 +7,9 @@ Autonomous research loops on GPU pods with claude --dangerously-skip-permissions
 ```
 /plugin marketplace add ogilg/zombuul
 /plugin install zombuul@ogilg-marketplace
-/zombuul:setup
 ```
+And then ask claude to set it up.
+
 
 ## Usage
 
