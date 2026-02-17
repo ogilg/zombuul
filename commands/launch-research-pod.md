@@ -1,6 +1,6 @@
 ---
 description: Spin up a RunPod GPU pod and launch a research loop on it. Argument $ARGUMENTS — path to experiment spec (e.g. experiments/content_orthogonal_gemma2base.md).
-allowed-tools: Bash, AskUserQuestion
+allowed-tools: Bash, AskUserQuestion, Write
 ---
 
 Spin up a RunPod GPU pod and launch an autonomous research loop on it.
@@ -28,9 +28,20 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 8. **Copy .env**: If a `.env` file exists in the current working directory:
    `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no .env root@<IP>:/workspace/repo/.env`
 
-9. **Launch the research loop**: To avoid quoting issues, write a launch script to the pod, then run it. Use the **namespaced** command the user chose in step 2 (`/zombuul:launch-research-loop` or `/zombuul:launch-research-ralph`) — the non-namespaced versions don't resolve on the pod. Pass the full path to the spec file (not `@` syntax):
-   - Use `ssh` to write a script on the pod. The script must set git config from `.env` (since `.env` was SCP'd after pod_setup.sh ran): `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "cat > /tmp/launch_research.sh << 'SCRIPT'\nsource ~/.bash_profile && cd /workspace/repo && if [ -f .env ]; then git config --global user.name \"$(grep '^GIT_USER_NAME=' .env | cut -d= -f2-)\"; git config --global user.email \"$(grep '^GIT_USER_EMAIL=' .env | cut -d= -f2-)\"; fi && IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high -p '/zombuul:<chosen_command> <full_spec_path>'\nrunpodctl stop pod $RUNPOD_POD_ID\nSCRIPT"`
-   - Then launch it in tmux: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "tmux new-session -d -s research 'bash /tmp/launch_research.sh'"`
+9. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it in tmux. Use the **namespaced** command the user chose in step 2 (`/zombuul:launch-research-loop` or `/zombuul:launch-research-ralph`) — the non-namespaced versions don't resolve on the pod. Pass the full path to the spec file (not `@` syntax):
+   - Use the **Write tool** to create `/tmp/launch_research.sh` locally with this content (substitute the chosen command and spec path):
+     ```
+     source ~/.bash_profile
+     cd /workspace/repo
+     if [ -f .env ]; then
+       git config --global user.name "$(grep '^GIT_USER_NAME=' .env | cut -d= -f2-)"
+       git config --global user.email "$(grep '^GIT_USER_EMAIL=' .env | cut -d= -f2-)"
+     fi
+     IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high -p '/zombuul:<chosen_command> <full_spec_path>'
+     runpodctl stop pod $RUNPOD_POD_ID
+     ```
+   - SCP it to the pod: `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no /tmp/launch_research.sh root@<IP>:/tmp/launch_research.sh`
+   - Launch it in tmux: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "tmux new-session -d -s research 'bash /tmp/launch_research.sh'"`
    - If the tmux launch fails, debug and retry with adjusted commands. The goal is a detached tmux session named `research`.
 
 10. **Verify**: Check that the tmux session is running: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no "tmux list-sessions"`
