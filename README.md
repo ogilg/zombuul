@@ -2,6 +2,15 @@
 
 Autonomous research loops on GPU pods with Claude Code. Write an experiment spec, launch it, come back to a report.
 
+## Install
+
+```
+/plugin marketplace add ogilg/zombuul
+/plugin install zombuul@ogilg-marketplace
+```
+
+Then run `/zombuul:setup` to get started.
+
 ## What it does
 
 You write a markdown spec describing a research question. Claude Code runs the experiment autonomously on a RunPod GPU — baseline, iterations, plots, report. When it finishes, the pod terminates. Optionally, ralph mode chains experiments: each report feeds into the next, building a sequence of experiments that converge on an answer.
@@ -34,7 +43,9 @@ All commands and scripts live in this repo:
 
 ```
 zombuul/
-├── .claude-plugin/plugin.json
+├── .claude-plugin/
+│   ├── plugin.json
+│   └── marketplace.json
 ├── commands/
 │   ├── launch-research-loop.md
 │   ├── launch-research-ralph.md
@@ -42,6 +53,8 @@ zombuul/
 │   ├── launch-research-pod.md
 │   ├── launch-runpod.md
 │   └── stop-runpod.md
+├── skills/
+│   └── setup/SKILL.md      # interactive onboarding wizard
 ├── scripts/
 │   ├── runpod_ctl.py       # RunPod API wrapper (create, list, stop, SSH)
 │   └── pod_setup.sh        # pod bootstrap (clone, deps, claude, auth)

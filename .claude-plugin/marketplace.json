@@ -1,0 +1,11 @@
+{
+  "name": "ogilg-marketplace",
+  "owner": { "name": "ogilg" },
+  "plugins": [
+    {
+      "name": "zombuul",
+      "source": "./",
+      "description": "Autonomous research loops on GPU pods with Claude Code"
+    }
+  ]
+}
