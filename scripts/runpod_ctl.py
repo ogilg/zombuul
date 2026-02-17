@@ -47,7 +47,7 @@ def ssh_run(ip: str, port: int, command: list[str], **kwargs) -> subprocess.Comp
 # --- Pod info ---
 
 def get_pod_env() -> dict[str, str]:
-    return {k: v for k in ("HF_TOKEN", "GH_TOKEN") if (v := os.environ.get(k))}
+    return {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID") if (v := os.environ.get(k))}
 
 
 def get_ssh_info(pod_id: str) -> tuple[str | None, int | None]:

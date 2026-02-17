@@ -19,9 +19,9 @@ def test_ssh_cmd_format():
 
 
 def test_get_pod_env_filters_correctly():
-    with patch.dict("os.environ", {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "UNRELATED": "x"}):
+    with patch.dict("os.environ", {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123", "UNRELATED": "x"}):
         env = runpod_ctl.get_pod_env()
-        assert env == {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz"}
+        assert env == {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123"}
 
 
 def test_get_pod_env_missing_tokens():

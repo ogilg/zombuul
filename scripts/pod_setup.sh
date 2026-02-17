@@ -10,7 +10,7 @@ REPO_DIR="/workspace/repo"
 
 # Import container env vars (not inherited when run via nohup over SSH)
 if [ -f /proc/1/environ ]; then
-    export $(cat /proc/1/environ | tr '\0' '\n' | grep -E '^(HF_TOKEN|GH_TOKEN)=')
+    export $(cat /proc/1/environ | tr '\0' '\n' | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=')
 fi
 
 # System tools
@@ -80,6 +80,12 @@ if [ -n "$HF_TOKEN" ]; then
 fi
 if [ -n "$GH_TOKEN" ]; then
     echo "export GH_TOKEN=$GH_TOKEN" >> ~/.bash_profile
+fi
+if [ -n "$SLACK_BOT_TOKEN" ]; then
+    echo "export SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN" >> ~/.bash_profile
+fi
+if [ -n "$SLACK_CHANNEL_ID" ]; then
+    echo "export SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID" >> ~/.bash_profile
 fi
 
 echo ""

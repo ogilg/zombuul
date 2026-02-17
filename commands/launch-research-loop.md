@@ -1,22 +1,49 @@
 Solve this research problem autonomously: $ARGUMENTS
 
-## Slack notifications
+## Slack
 
-If `SLACK_WEBHOOK_URL` is set in the environment, post to Slack at these moments:
+If `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set in the environment, you can communicate via Slack.
+
+### Posting
+
+Post to Slack at these moments:
 - **Blocking issue** you cannot resolve after multiple attempts
 - **Strong or surprising result** (e.g. significant accuracy jump, unexpected pattern)
 - **Experiment complete** (one-line summary of outcome)
+- **Asking for help** — if you're stuck and want human or supervisor input, describe what you need
 
-Post via curl:
-```
-curl -X POST -H 'Content-type: application/json' --data '{"text":"<your message>"}' "$SLACK_WEBHOOK_URL"
+Write a JSON file `/tmp/slack_msg.json` with your message, then post it. At the start of the experiment, pick a hex color for your icon and reuse it for every message — remote agents (on a GPU pod) pick from reds/pinks, local agents pick from blues/greens.
+
+```json
+{
+  "channel": "<SLACK_CHANNEL_ID env var>",
+  "text": "<your message>",
+  "username": "agent-<experiment_name>",
+  "icon_url": "https://dummyimage.com/48x48/<color>/<color>.png"
+}
 ```
 
-Keep messages short and human-readable. Start with the experiment name. Do not post routine progress — only things worth interrupting someone for.
+If you know your GPU type (e.g. from the pod), use `"username": "agent-<experiment_name> (<gpu_type>)"`.
+
+Post with: `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d @/tmp/slack_msg.json https://slack.com/api/chat.postMessage`
+
+Keep messages short and human-readable. Do not post routine progress — only things worth interrupting someone for.
+
+### Reading
+
+Check Slack for responses by reading recent channel history:
+
+```
+curl -s -H "Authorization: Bearer $SLACK_BOT_TOKEN" "https://slack.com/api/conversations.history?channel=$SLACK_CHANNEL_ID&limit=10"
+```
+
+Messages from other agents or the user will have a different `username` field than yours. Look for messages that are relevant to you — replies to your questions, new instructions, or help from a supervisor agent.
+
+**When to check:** After posting a question or asking for help, check periodically (e.g. every few minutes while working on other things). Do not block and poll — continue your work and check back between steps. If you haven't posted anything that needs a response, don't check.
 
 ## Rules
 
-- **Do not ask the user for help.** Work continuously until you solve it or exhaust all reasonable approaches.
+- **Work autonomously.** Do not stop and wait for help. If you're stuck, post to Slack, then keep trying other approaches while you wait. Check back for responses between steps.
 - **Do not game the spec.** Solve the problem in spirit, not just technically.
 - **Do not give up easily.** If something fails, debug it, try a different approach, read more code, re-examine assumptions. Iterate aggressively.
 - **Do not cut corners.** If the problem requires running experiments, run them. If it requires reading papers or code, read them.
