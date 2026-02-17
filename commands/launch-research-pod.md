@@ -19,7 +19,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 
 5. **Wait for setup to complete**: Poll every 15 seconds by running `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no grep -c 'Setup complete' /var/log/pod_setup.log`. Once it returns "1", setup is done. Show the last line of the log each poll for progress. Timeout after 15 minutes. If something seems wrong, check the full log and debug.
 
-6. **Sync the experiment spec**: The spec file may not be committed/pushed yet. Always SCP it to the pod to guarantee it exists:
+6. **Sync the experiment spec (REQUIRED)**: The spec file is often not committed/pushed. You MUST SCP it to the pod — never assume it exists from the git clone:
    - Create the parent directory: `ssh ... "mkdir -p /workspace/repo/<spec_parent_dir>"`
    - Copy the spec: `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no <local_spec_path> root@<IP>:/workspace/repo/<spec_path>`
 
@@ -33,10 +33,6 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
      ```
      source ~/.bash_profile
      cd /workspace/repo
-     if [ -f .env ]; then
-       git config --global user.name "$(grep '^GIT_USER_NAME=' .env | cut -d= -f2-)"
-       git config --global user.email "$(grep '^GIT_USER_EMAIL=' .env | cut -d= -f2-)"
-     fi
      IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high -p '/zombuul:<chosen_command> <full_spec_path>'
      runpodctl stop pod $RUNPOD_POD_ID
      ```
