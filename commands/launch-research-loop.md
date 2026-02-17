@@ -1,5 +1,19 @@
 Solve this research problem autonomously: $ARGUMENTS
 
+## Slack notifications
+
+If `SLACK_WEBHOOK_URL` is set in the environment, post to Slack at these moments:
+- **Blocking issue** you cannot resolve after multiple attempts
+- **Strong or surprising result** (e.g. significant accuracy jump, unexpected pattern)
+- **Experiment complete** (one-line summary of outcome)
+
+Post via curl:
+```
+curl -X POST -H 'Content-type: application/json' --data '{"text":"<your message>"}' "$SLACK_WEBHOOK_URL"
+```
+
+Keep messages short and human-readable. Start with the experiment name. Do not post routine progress — only things worth interrupting someone for.
+
 ## Rules
 
 - **Do not ask the user for help.** Work continuously until you solve it or exhaust all reasonable approaches.
