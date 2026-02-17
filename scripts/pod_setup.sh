@@ -1,10 +1,11 @@
 #!/bin/bash
-# Usage: bash pod_setup.sh <repo_url> [branch]
+# Usage: bash pod_setup.sh <repo_url> [branch] [python_version]
 # Generic pod bootstrap for zombuul research loops.
 # Reads git identity and tokens from .env (SCP'd separately).
 
-REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch]}"
+REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version]}"
 BRANCH="${2:-main}"
+PYTHON_VERSION="${3:-3.12}"
 REPO_DIR="/workspace/repo"
 
 # Import container env vars (not inherited when run via nohup over SSH)
@@ -36,7 +37,8 @@ mkdir -p /opt/uv_cache /opt/hf_cache
 # Python environment
 pip install uv
 mkdir -p /opt/venvs
-uv venv --python 3.12 /opt/venvs/research
+rm -rf /opt/venvs/research
+uv venv --python "$PYTHON_VERSION" /opt/venvs/research
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR"
 uv pip install -e .
@@ -56,7 +58,7 @@ fi
 
 # Auth (tokens passed via environment)
 if [ -n "$HF_TOKEN" ]; then
-    huggingface-cli login --token $HF_TOKEN
+    hf auth login --token $HF_TOKEN
     echo "Logged into Hugging Face."
 fi
 

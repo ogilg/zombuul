@@ -145,7 +145,7 @@ def get_repo_url() -> str:
     sys.exit(1)
 
 
-def run_setup_remote(ip: str, port: int, repo_url: str, branch: str):
+def run_setup_remote(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.12"):
     setup_script = find_setup_script()
 
     print("  Copying pod_setup.sh...")
@@ -159,10 +159,10 @@ def run_setup_remote(ip: str, port: int, repo_url: str, branch: str):
     else:
         print("  WARNING: No Claude Code credentials found, skipping auth.")
 
-    print(f"  Running pod_setup.sh in background (repo: {repo_url}, branch: {branch})...")
+    print(f"  Running pod_setup.sh in background (repo: {repo_url}, branch: {branch}, python: {python_version})...")
     ssh_run(
         ip, port,
-        [f"nohup bash /pod_setup.sh {repo_url} {branch} > /var/log/pod_setup.log 2>&1 &"],
+        [f"nohup bash /pod_setup.sh {repo_url} {branch} {python_version} > /var/log/pod_setup.log 2>&1 &"],
         check=True,
     )
     print("  Setup running. Check /var/log/pod_setup.log on the pod.")
@@ -176,7 +176,7 @@ def list_gpus():
         print(f"  {gpu['id']:45s} {gpu['memoryInGb']}GB")
 
 
-def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, branch: str, volume_gb: int = 100, disk_gb: int = 50):
+def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, branch: str, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 50):
     print(f"Creating pod '{name}' with {gpu_type_id}...")
     try:
         pod = runpod.create_pod(
@@ -213,7 +213,7 @@ def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, bran
     print(f"  SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
 
     try:
-        run_setup_remote(ip, port, repo_url, branch)
+        run_setup_remote(ip, port, repo_url, branch, python_version)
     except Exception as e:
         print(f"  WARNING: Setup failed: {e}")
         print(f"  Pod is still running. SSH in and run setup manually.")
@@ -261,6 +261,7 @@ def main():
     create.add_argument("--image", required=True)
     create.add_argument("--repo-url", default=None, help="Git repo URL to clone on pod (default: current repo's origin)")
     create.add_argument("--branch", default=None, help="Git branch to checkout on pod (default: current branch)")
+    create.add_argument("--python", default="3.12", help="Python version for venv (default: 3.12)")
     create.add_argument("--volume-gb", type=int, default=50)
     create.add_argument("--disk-gb", type=int, default=200)
 
@@ -281,7 +282,7 @@ def main():
     elif args.command == "create":
         repo_url = args.repo_url or get_repo_url()
         branch = args.branch or get_current_branch()
-        create_pod(args.name, args.gpu, args.image, repo_url, branch, args.volume_gb, args.disk_gb)
+        create_pod(args.name, args.gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb)
     elif args.command == "stop":
         stop_pod(args.pod_id)
     elif args.command == "status":
