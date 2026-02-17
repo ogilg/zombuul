@@ -10,7 +10,8 @@ REPO_DIR="/workspace/repo"
 
 # Import container env vars (not inherited when run via nohup over SSH)
 if [ -f /proc/1/environ ]; then
-    export $(cat /proc/1/environ | tr '\0' '\n' | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=')
+    # shellcheck disable=SC2046
+    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=')
 fi
 
 # System tools
@@ -21,7 +22,7 @@ curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of
 if [ ! -d "$REPO_DIR" ]; then
     git clone "$REPO_URL" "$REPO_DIR"
 fi
-cd "$REPO_DIR"
+cd "$REPO_DIR" || exit 1
 git fetch origin
 git checkout "$BRANCH"
 
@@ -39,8 +40,9 @@ pip install uv
 mkdir -p /opt/venvs
 rm -rf /opt/venvs/research
 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
+# shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
-cd "$REPO_DIR"
+cd "$REPO_DIR" || exit 1
 uv pip install -e .
 uv cache clean
 
@@ -58,12 +60,12 @@ fi
 
 # Auth (tokens passed via environment)
 if [ -n "$HF_TOKEN" ]; then
-    hf auth login --token $HF_TOKEN
+    hf auth login --token "$HF_TOKEN"
     echo "Logged into Hugging Face."
 fi
 
 if [ -n "$GH_TOKEN" ]; then
-    echo $GH_TOKEN | gh auth login --with-token
+    echo "$GH_TOKEN" | gh auth login --with-token
     echo "Logged into GitHub."
 fi
 
