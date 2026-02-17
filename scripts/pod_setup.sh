@@ -67,6 +67,10 @@ if [ -n "$GH_TOKEN" ]; then
     echo "Logged into GitHub."
 fi
 
+# Install zombuul plugin via marketplace
+claude plugin marketplace add ogilg/zombuul
+claude plugin install zombuul@ogilg-marketplace
+
 # Write .bash_profile so login shells get venv + tokens
 cat > ~/.bash_profile << 'PROFILE'
 export PATH="$HOME/.local/bin:$PATH"
