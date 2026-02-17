@@ -176,15 +176,19 @@ def list_gpus():
         print(f"  {gpu['id']:45s} {gpu['memoryInGb']}GB")
 
 
-def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, branch: str, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 50):
-    print(f"Creating pod '{name}' with {gpu_type_id}...")
+CPU_INSTANCE_ID = "cpu3c-2-4"
+
+
+def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 50):
+    kind = gpu_type_id or "CPU-only"
+    print(f"Creating pod '{name}' with {kind}...")
     try:
-        pod = runpod.create_pod(
+        kwargs = dict(
             name=name,
             image_name=image_name,
             gpu_type_id=gpu_type_id,
             cloud_type="ALL",
-            gpu_count=1,
+            gpu_count=1 if gpu_type_id else 0,
             volume_in_gb=volume_gb,
             container_disk_in_gb=disk_gb,
             volume_mount_path="/workspace",
@@ -193,6 +197,10 @@ def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, bran
             support_public_ip=True,
             env=get_pod_env(),
         )
+        if not gpu_type_id:
+            kwargs["instance_id"] = CPU_INSTANCE_ID
+            kwargs["container_disk_in_gb"] = min(disk_gb, 20)
+        pod = runpod.create_pod(**kwargs)
     except Exception as e:
         print(f"ERROR creating pod: {e}")
         sys.exit(1)
@@ -209,7 +217,7 @@ def create_pod(name: str, gpu_type_id: str, image_name: str, repo_url: str, bran
 
     print(f"\nPod is ready!")
     print(f"  ID:  {pod_id}")
-    print(f"  GPU: {gpu_type_id}")
+    print(f"  GPU: {kind}")
     print(f"  SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
 
     try:
@@ -257,7 +265,9 @@ def main():
 
     create = sub.add_parser("create", help="Create a new pod")
     create.add_argument("--name", required=True)
-    create.add_argument("--gpu", required=True)
+    hw_group = create.add_mutually_exclusive_group(required=True)
+    hw_group.add_argument("--gpu", help="GPU type ID")
+    hw_group.add_argument("--cpu", action="store_true", help="Create a CPU-only pod (no GPU)")
     create.add_argument("--image", required=True)
     create.add_argument("--repo-url", default=None, help="Git repo URL to clone on pod (default: current repo's origin)")
     create.add_argument("--branch", default=None, help="Git branch to checkout on pod (default: current branch)")
@@ -282,7 +292,8 @@ def main():
     elif args.command == "create":
         repo_url = args.repo_url or get_repo_url()
         branch = args.branch or get_current_branch()
-        create_pod(args.name, args.gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb)
+        gpu = None if args.cpu else args.gpu
+        create_pod(args.name, gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb)
     elif args.command == "stop":
         stop_pod(args.pod_id)
     elif args.command == "status":

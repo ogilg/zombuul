@@ -9,11 +9,14 @@ Spin up a RunPod GPU pod interactively.
 
 1. **List available GPUs**: Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus` and show the user the options.
 
-2. **Ask the user** which GPU they want using AskUserQuestion. Offer 3-4 common options from the list plus an "Other" escape hatch.
+2. **Ask the user** which GPU they want using AskUserQuestion. Offer 3-4 common GPU options from the list, plus a "CPU-only" option.
 
 3. **Ask for docker image** if not obvious. Default to `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`.
 
-4. **Create the pod**: Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --image "<image>"` **in the background**. Use $ARGUMENTS as the pod name if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, extracts Claude Code credentials from Keychain, then SCPs and runs `pod_setup.sh`.
+4. **Create the pod** **in the background**:
+   - GPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --image "<image>"`
+   - CPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --cpu --image "<image>"`
+   Use $ARGUMENTS as the pod name if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, extracts Claude Code credentials from Keychain, then SCPs and runs `pod_setup.sh`.
 
 5. **SCP the project .env**: If a `.env` file exists in the current working directory, copy it to the pod:
    `scp -P <port> -i ~/.ssh/id_ed25519 .env root@<ip>:/workspace/repo/.env`
