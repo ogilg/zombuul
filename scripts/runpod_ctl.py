@@ -4,6 +4,8 @@
 import argparse
 import functools
 import os
+import re
+import shlex
 import subprocess
 import sys
 import time
@@ -40,8 +42,78 @@ def scp_to_pod(ip: str, port: int, local_path: str, remote_path: str):
     )
 
 
-def ssh_run(ip: str, port: int, command: list[str], **kwargs) -> subprocess.CompletedProcess:
-    return subprocess.run(ssh_cmd(ip, port) + command, **kwargs)
+# RunPod containers inject an OSC 11 escape sequence (\x1b]11;#000000\x1b\\)
+# on every SSH command's stdout, and SSH returns exit code 1 even when the
+# remote command succeeds. This regex strips it from captured output.
+_OSC_RE = re.compile(r"\x1b\]11;[^\x1b]*\x1b\\")
+
+
+_RC_SENTINEL = "__ZOMBUUL_RC__"
+
+
+def _strip_osc(text: str | None) -> str | None:
+    if text is None:
+        return None
+    return _OSC_RE.sub("", text)
+
+
+def _extract_exit_code(stdout: str) -> tuple[str, int | None]:
+    """Extract real exit code from sentinel line, return (cleaned_stdout, exit_code)."""
+    if _RC_SENTINEL not in stdout:
+        return stdout, None
+    lines = stdout.rstrip("\n").split("\n")
+    exit_code = None
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].startswith(_RC_SENTINEL):
+            try:
+                exit_code = int(lines[i][len(_RC_SENTINEL):])
+            except ValueError:
+                pass
+            lines.pop(i)
+            break
+    cleaned = "\n".join(lines) + "\n" if lines else ""
+    return cleaned, exit_code
+
+
+def ssh_run(ip: str, port: int, command: str | list[str], **kwargs) -> subprocess.CompletedProcess:
+    """Run a command on a pod via SSH.
+
+    Handles RunPod's OSC escape injection: strips escape sequences from
+    captured output and recovers the real remote exit code (which RunPod's
+    infrastructure masks by always returning 1).
+
+    command can be a shell string or a list of argv tokens (will be shell-quoted).
+    Always pass capture_output=True, text=True to get accurate exit codes.
+    """
+    caller_check = kwargs.pop("check", False)
+    capture = kwargs.get("capture_output", False)
+    text_mode = kwargs.get("text", False)
+
+    if isinstance(command, str):
+        cmd_str = command
+    else:
+        cmd_str = " ".join(shlex.quote(c) for c in command)
+    wrapped = cmd_str + f"; echo {_RC_SENTINEL}$?"
+    result = subprocess.run(ssh_cmd(ip, port) + [wrapped], **kwargs)
+
+    if capture and text_mode:
+        result.stdout = _strip_osc(result.stdout)
+        result.stderr = _strip_osc(result.stderr)
+
+        if result.stdout:
+            result.stdout, real_rc = _extract_exit_code(result.stdout)
+            if real_rc is not None:
+                result.returncode = real_rc
+    else:
+        # Without capture we can't extract the real exit code.
+        # Best effort: assume rc=1 is the RunPod artifact.
+        if result.returncode == 1:
+            result.returncode = 0
+
+    if caller_check and result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
+
+    return result
 
 
 # --- Pod info ---
@@ -154,7 +226,7 @@ def run_setup_remote(ip: str, port: int, repo_url: str, branch: str, python_vers
     creds_file = extract_claude_credentials()
     if creds_file:
         print("  Copying Claude Code credentials...")
-        ssh_run(ip, port, ["mkdir", "-p", "/root/.claude"], check=True)
+        ssh_run(ip, port, ["mkdir", "-p", "/root/.claude"], capture_output=True, text=True, check=True)
         scp_to_pod(ip, port, creds_file, "/root/.claude/.credentials.json")
     else:
         print("  WARNING: No Claude Code credentials found, skipping auth.")
@@ -162,8 +234,8 @@ def run_setup_remote(ip: str, port: int, repo_url: str, branch: str, python_vers
     print(f"  Running pod_setup.sh in background (repo: {repo_url}, branch: {branch}, python: {python_version})...")
     ssh_run(
         ip, port,
-        [f"nohup bash /pod_setup.sh {repo_url} {branch} {python_version} > /var/log/pod_setup.log 2>&1 &"],
-        check=True,
+        f"nohup bash /pod_setup.sh {shlex.quote(repo_url)} {shlex.quote(branch)} {shlex.quote(python_version)} > /var/log/pod_setup.log 2>&1 &",
+        capture_output=True, text=True, check=True,
     )
     print("  Setup running. Check /var/log/pod_setup.log on the pod.")
 
