@@ -4,7 +4,7 @@ You are reviewing a research report as a **naive reader** — someone who unders
 
 ## Setup
 
-1. Read the experiment spec (the `spec.md` in the same directory as the report, or the parent experiment's spec if this is a follow-up).
+1. Read the experiment spec (the `*_spec.md` in the same directory as the report, or the parent experiment's spec if this is a follow-up).
 2. Read the report.
 3. Do NOT read any code, scripts, running logs, or other implementation files. The whole point is to evaluate the report as a standalone document.
 

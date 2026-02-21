@@ -66,7 +66,7 @@ If it fails, help debug (wrong key, missing package, etc.).
 
 If everything is configured, tell the user they're ready and show:
 ```
-/launch-research-pod experiments/<name>/spec.md
+/launch-research-pod experiments/<name>/<name>_spec.md
 ```
 
-Tell them to create a spec.md first if they don't have one.
+Tell them to create a `{name}_spec.md` first if they don't have one.

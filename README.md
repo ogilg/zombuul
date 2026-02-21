@@ -17,7 +17,7 @@ And then ask claude to set it up.
 2. Launch it:
 
 ```
-/zombuul:launch-research-pod experiments/my_question/spec.md
+/zombuul:launch-research-pod experiments/my_question/my_question_spec.md
 ```
 
 This spins up a RunPod GPU, clones your repo, installs deps, then launches a headless Claude Code session with `--dangerously-skip-permissions` inside tmux. That agent reads your spec, runs the experiment autonomously (baseline, iterations, plots, report), pushes a branch with the results, and terminates the pod.
@@ -58,10 +58,10 @@ You (local Claude Code)              Pod (RunPod GPU)
  │                                    │ read spec
  │                                    │ run baseline
  │                                    │ iterate (code, analysis, plots)
- │                                    │ write report.md
+ │                                    │ write {name}_report.md
  │                                    │ push branch
  │                                    │ terminate pod
  │                                    │
  │  git pull
- │  experiments/my_question/report.md
+ │  experiments/my_question/my_question_report.md
 ```

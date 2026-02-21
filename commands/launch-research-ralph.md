@@ -4,13 +4,13 @@ The argument $ARGUMENTS points to a top-level experiment directory: `experiments
 
 ## Every iteration
 
-1. **Read the research goal.** Read `experiments/{name}/spec.md`.
-2. **Find all completed experiments.** List all `report.md` files in `experiments/{name}/` and its subdirectories. Order them chronologically (by file modification time or by the sequence implied by parent→child relationships).
+1. **Read the research goal.** Read `experiments/{name}/{name}_spec.md`.
+2. **Find all completed experiments.** List all `*_report.md` files in `experiments/{name}/` and its subdirectories. Order them chronologically (by file modification time or by the sequence implied by parent→child relationships).
 3. **Synthesize older reports.** If there are 2+ reports, launch a subagent (Task tool, subagent_type="general-purpose"): "Read these reports in order: {list all but the latest}. Write a synthesis to `experiments/{name}/synthesis.md` with: (a) what's been established, (b) what failed and why, (c) open questions. Be concise — this is background context, not the focus." Then read `synthesis.md`.
 4. **Read the latest report in full.** This is the most important input — read it directly, not via summary.
 5. **Check if done.** If the overall goal is convincingly addressed — positive results or enough negative evidence to close the question — output <promise>RESEARCH_COMPLETE</promise> and stop.
-6. **Design the next experiment.** Write a focused spec at `experiments/{name}/{follow_up_name}/spec.md`.
-7. **Run the experiment.** Invoke `/launch-research-loop experiments/{name}/{follow_up_name}/spec.md`.
+6. **Design the next experiment.** Write a focused spec at `experiments/{name}/{follow_up_name}/{follow_up_name}_spec.md`.
+7. **Run the experiment.** Invoke `/launch-research-loop experiments/{name}/{follow_up_name}/{follow_up_name}_spec.md`.
 8. **Push synthesis.** If you wrote or updated `synthesis.md`, commit and push it.
 9. **Stop.** You will be re-invoked automatically.
 

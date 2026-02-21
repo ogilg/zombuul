@@ -54,20 +54,20 @@ Messages from other agents or the user will have a different `username` field th
 
 ## Directory structure
 
-The argument $ARGUMENTS points to an experiment spec at `experiments/{name}/spec.md`. All outputs for this experiment go inside `experiments/{name}/`:
+The argument $ARGUMENTS points to an experiment spec at `experiments/{name}/{name}_spec.md`. All outputs for this experiment go inside `experiments/{name}/`:
 
 ```
 experiments/{name}/
-├── spec.md          # the experiment spec (input — already exists)
-├── report.md        # your results report (output — you create this)
-├── running_log.md   # detailed append-only working log (output — you create this)
-└── assets/          # plots referenced from report.md
+├── {name}_spec.md          # the experiment spec (input — already exists)
+├── {name}_report.md        # your results report (output — you create this)
+├── running_log.md          # detailed append-only working log (output — you create this)
+└── assets/                 # plots referenced from {name}_report.md
     └── plot_{mmddYY}_description.png
 ```
 
-If this is a **follow-up** to an existing experiment (i.e. the spec lives in a subdirectory like `experiments/{name}/{follow_up}/spec.md`), write your report and assets inside that subdirectory. **Read the parent experiment's report.md first** — it contains context, baselines, and lessons learned that you should build on.
+If this is a **follow-up** to an existing experiment (i.e. the spec lives in a subdirectory like `experiments/{name}/{follow_up}/{follow_up}_spec.md`), write your report and assets inside that subdirectory. **Read the parent experiment's `{name}_report.md` first** — it contains context, baselines, and lessons learned that you should build on.
 
-Image references in report.md use relative paths: `![description](assets/plot_foo.png)`.
+Image references in the report use relative paths: `![description](assets/plot_foo.png)`.
 
 ### Running log
 
