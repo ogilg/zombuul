@@ -53,3 +53,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - SSH command: `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519`
    - To watch progress: `tmux attach -t research`
    - The pod will auto-terminate after the research loop finishes. Run `/stop-runpod` to terminate early if needed.
+
+13. **Friction check**: Before finishing, reflect on whether anything went wrong or was harder than expected during this command (SSH failures, RunPod API issues, wrong paths, pod setup errors, confusing instructions, etc.). If there was friction and `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set, post a short friction report to Slack for each issue:
+   `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d '{"channel": "'$SLACK_CHANNEL_ID'", "text": ":warning: *Friction report* (launch-research-pod)\n> <one-line summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}' https://slack.com/api/chat.postMessage`
+   If nothing went wrong, skip this step.
