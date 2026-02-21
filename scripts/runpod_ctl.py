@@ -316,6 +316,23 @@ def stop_pod(pod_id: str):
     print("Pod terminated.")
 
 
+def pause_pod(pod_id: str):
+    print(f"Pausing pod {pod_id}...")
+    runpod.stop_pod(pod_id)
+    print("Pod paused. Disk is preserved; GPU billing stopped.")
+
+
+def resume_pod(pod_id: str):
+    print(f"Resuming pod {pod_id}...")
+    runpod.resume_pod(pod_id, gpu_count=1)
+    print("Pod resume requested. Waiting for SSH...")
+    ip, port = wait_for_ssh(pod_id)
+    if ip:
+        print(f"Pod is ready! SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
+    else:
+        print("Timed out waiting for pod. Check RunPod dashboard.")
+
+
 def setup_status(pod_id: str):
     ip, port = get_ssh_info(pod_id)
     if not ip:
@@ -351,6 +368,12 @@ def main():
     stop = sub.add_parser("stop", help="Terminate a pod")
     stop.add_argument("pod_id")
 
+    pause = sub.add_parser("pause", help="Pause a pod (stop GPU billing, keep disk)")
+    pause.add_argument("pod_id")
+
+    resume = sub.add_parser("resume", help="Resume a paused pod")
+    resume.add_argument("pod_id")
+
     status = sub.add_parser("status", help="Check setup progress on a pod")
     status.add_argument("pod_id")
 
@@ -369,6 +392,10 @@ def main():
         create_pod(args.name, gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb, args.gpu_count)
     elif args.command == "stop":
         stop_pod(args.pod_id)
+    elif args.command == "pause":
+        pause_pod(args.pod_id)
+    elif args.command == "resume":
+        resume_pod(args.pod_id)
     elif args.command == "status":
         setup_status(args.pod_id)
     else:
