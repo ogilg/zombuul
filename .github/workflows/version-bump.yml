@@ -1,0 +1,48 @@
+name: Version Bump
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  bump:
+    # Skip on version bump commits to avoid infinite loop
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          PLUGIN_JSON=".claude-plugin/plugin.json"
+          CURRENT=$(python3 -c "import json; d=open('$PLUGIN_JSON').read(); print(json.loads(d)['version'])")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          python3 -c "
+          import json
+          with open('$PLUGIN_JSON') as f:
+              d = json.load(f)
+          d['version'] = '$NEW_VERSION'
+          with open('$PLUGIN_JSON', 'w') as f:
+              json.dump(d, f, indent=2)
+              f.write('\n')
+          "
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/plugin.json
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+          git tag "v${{ steps.bump.outputs.new_version }}"
+          git push
+          git push --tags
