@@ -33,4 +33,5 @@ Spin up a RunPod GPU pod interactively.
    - SSH command: `ssh root@<ip> -p <port> -i ~/.ssh/id_ed25519`
    - The setup script is running in the background on the pod (clones repo, installs deps). Check `/var/log/pod_setup.log` on the pod for progress.
    - Once setup is done, run `source ~/.bash_profile && cd /workspace/repo && IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high`.
+   - If setup fails, don't debug individual steps — just re-run `pod_setup.sh`: `ssh ... "nohup bash /pod_setup.sh <repo_url> <branch> > /var/log/pod_setup.log 2>&1 &"`. It's idempotent (skips clone if repo exists).
    - They can run `/stop-runpod` to terminate the pod when done.

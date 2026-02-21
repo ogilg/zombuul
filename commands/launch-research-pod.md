@@ -23,7 +23,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 
 5. **Create the pod**: Read the experiment spec and pick a short, descriptive pod name (2-3 words, kebab-case, e.g. `probe-generalization` or `steering-math`). Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name "<pod_name>" --gpu "<gpu_type_id>" --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"` **in the background**. Parse the SSH IP and port from the output (line like `SSH: ssh root@<IP> -p <PORT> ...`).
 
-6. **Wait for setup to complete**: Poll every 15 seconds by running `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no grep -c 'Setup complete' /var/log/pod_setup.log`. Once it returns "1", setup is done. Show the last line of the log each poll for progress. Timeout after 15 minutes. If something seems wrong, check the full log and debug.
+6. **Wait for setup to complete**: Poll every 15 seconds by running `ssh root@<IP> -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no grep -c 'Setup complete' /var/log/pod_setup.log`. Once it returns "1", setup is done. Show the last line of the log each poll for progress. Timeout after 15 minutes. If setup fails, **do not manually run individual steps** — just re-run `pod_setup.sh` on the pod: `ssh ... "nohup bash /pod_setup.sh <repo_url> <branch> <python_version> > /var/log/pod_setup.log 2>&1 &"`. The script is idempotent (skips clone if repo exists).
 
 7. **Sync the experiment spec (REQUIRED)**: The spec file is often not committed/pushed. You MUST SCP it to the pod — never assume it exists from the git clone:
    - Create the parent directory: `ssh ... "mkdir -p /workspace/repo/<spec_parent_dir>"`

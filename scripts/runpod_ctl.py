@@ -217,7 +217,7 @@ def get_repo_url() -> str:
     sys.exit(1)
 
 
-def run_setup_remote(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.12"):
+def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.12"):
     setup_script = find_setup_script()
 
     print("  Copying pod_setup.sh...")
@@ -293,7 +293,7 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
     print(f"  SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
 
     try:
-        run_setup_remote(ip, port, repo_url, branch, python_version)
+        setup_pod(ip, port, repo_url, branch, python_version)
     except Exception as e:
         print(f"  WARNING: Setup failed: {e}")
         print(f"  Pod is still running. SSH in and run setup manually.")
