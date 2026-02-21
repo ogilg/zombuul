@@ -7,6 +7,7 @@ If `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set in the environment, you can 
 ### Posting
 
 Post to Slack at these moments:
+- **Missing data** — if the spec references files that don't exist on this machine (activations, probe weights, etc.), post immediately listing what's missing and what steps are blocked. Then proceed with whatever steps you can.
 - **Blocking issue** you cannot resolve after multiple attempts
 - **Strong or surprising result** (e.g. significant accuracy jump, unexpected pattern)
 - **Experiment complete** (one-line summary of outcome)
@@ -27,7 +28,7 @@ If you know your GPU type (e.g. from the pod), use `"username": "agent-<experime
 
 Post with: `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d @/tmp/slack_msg.json https://slack.com/api/chat.postMessage`
 
-Keep messages short and human-readable. Do not post routine progress — only things worth interrupting someone for.
+**Message formatting:** Use Slack markdown (`*bold*`, `>` quotes, `\n` newlines) to make messages scannable. Start with a bold headline that captures the gist (e.g. `*Experiment complete: exp3c*` or `*Stuck: OOM during extraction*`), then key details on separate lines. Use `>` block quotes for data/numbers. A reader glancing at the channel should get the point from the headline alone, and can read further for details. Do not post routine progress — only things worth interrupting someone for.
 
 ### Reading
 
@@ -41,6 +42,12 @@ Messages from other agents or the user will have a different `username` field th
 
 **When to check:** After posting a question or asking for help, check periodically (e.g. every few minutes while working on other things). Do not block and poll — continue your work and check back between steps. If you haven't posted anything that needs a response, don't check.
 
+## Environment awareness
+
+If `IS_SANDBOX=1` is set, you are running on a remote GPU pod. This means:
+- **You are already on the GPU machine.** Do NOT create, launch, or SSH into other pods. Run experiments directly on this machine.
+- **Data may be incomplete.** The pod was set up by cloning the git repo and optionally syncing some gitignored data. If the spec references data files that don't exist locally (activations, probe weights, embeddings, results JSONs), **post to Slack** listing the missing files and their expected paths. Do not try to work around missing data by provisioning infrastructure — just flag it and proceed with whatever steps you can do without it.
+
 ## Rules
 
 - **Work autonomously.** Do not stop and wait for help. If you're stuck, post to Slack, then keep trying other approaches while you wait. Check back for responses between steps.
@@ -50,6 +57,7 @@ Messages from other agents or the user will have a different `username` field th
 - **Pay attention to the instructions.** They should define the research space. They should also provide fallback options and different things to try. Do not do something that the instructions tell you not to.
 - **Think about controls.** For each key result, think about what controls or sanity checks would strengthen the claim. Run them without being asked.
 - **Pilot before scaling.** When running experiments at scale, always run a small pilot first to validate the pipeline, check for obvious issues, and get rough effect sizes. Use pilot results to decide what to iterate on before committing to full runs.
+- **Do not provision infrastructure.** Never create pods, VMs, or cloud resources. You run experiments on the machine you're on.
 - **Results go in the experiment report only.** Do not write results anywhere else. The user will decide where to log them.
 
 ## Directory structure
