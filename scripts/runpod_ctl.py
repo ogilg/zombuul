@@ -251,7 +251,7 @@ def list_gpus():
 CPU_INSTANCE_ID = "cpu3c-2-4"
 
 
-def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 50):
+def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 50, gpu_count: int = 1):
     kind = gpu_type_id or "CPU-only"
     print(f"Creating pod '{name}' with {kind}...")
     try:
@@ -260,7 +260,7 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
             image_name=image_name,
             gpu_type_id=gpu_type_id,
             cloud_type="ALL",
-            gpu_count=1 if gpu_type_id else 0,
+            gpu_count=gpu_count if gpu_type_id else 0,
             volume_in_gb=volume_gb,
             container_disk_in_gb=disk_gb,
             volume_mount_path="/workspace",
@@ -344,6 +344,7 @@ def main():
     create.add_argument("--repo-url", default=None, help="Git repo URL to clone on pod (default: current repo's origin)")
     create.add_argument("--branch", default=None, help="Git branch to checkout on pod (default: current branch)")
     create.add_argument("--python", default="3.12", help="Python version for venv (default: 3.12)")
+    create.add_argument("--gpu-count", type=int, default=1, help="Number of GPUs (default: 1)")
     create.add_argument("--volume-gb", type=int, default=50)
     create.add_argument("--disk-gb", type=int, default=200)
 
@@ -365,7 +366,7 @@ def main():
         repo_url = args.repo_url or get_repo_url()
         branch = args.branch or get_current_branch()
         gpu = None if args.cpu else args.gpu
-        create_pod(args.name, gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb)
+        create_pod(args.name, gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb, args.gpu_count)
     elif args.command == "stop":
         stop_pod(args.pod_id)
     elif args.command == "status":

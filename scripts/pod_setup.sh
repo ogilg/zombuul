@@ -18,6 +18,11 @@ fi
 apt-get update && apt-get install -y tmux jq
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && apt update && apt install gh -y
 
+# Configure git auth before clone (GH_TOKEN is injected as container env var)
+if [ -n "$GH_TOKEN" ]; then
+    git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+fi
+
 # Clone repo and checkout branch
 if [ ! -d "$REPO_DIR" ]; then
     git clone "$REPO_URL" "$REPO_DIR"
