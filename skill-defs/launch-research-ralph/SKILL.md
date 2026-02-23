@@ -18,7 +18,7 @@ The argument $ARGUMENTS points to a top-level experiment directory: `experiments
 4. **Read the latest report in full.** This is the most important input — read it directly, not via summary.
 5. **Check if done.** If the overall goal is convincingly addressed — whether by positive results, null results, or negative evidence that closes the question — output <promise>RESEARCH_COMPLETE</promise> and stop.
 6. **Design the next experiment.** Write a focused spec at `experiments/{name}/{follow_up_name}/{follow_up_name}_spec.md`.
-7. **Run the experiment.** Invoke `/launch-research-loop experiments/{name}/{follow_up_name}/{follow_up_name}_spec.md`.
+7. **Run the experiment.** Invoke `/zombuul:launch-research-loop experiments/{name}/{follow_up_name}/{follow_up_name}_spec.md`.
 8. **Push synthesis.** If you wrote or updated `synthesis.md`, commit and push it.
 9. **Stop.** You will be re-invoked automatically.
 

@@ -21,7 +21,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 
 3. **Ask the user two questions** using AskUserQuestion:
    - **GPU**: Which GPU they want. Offer 3-4 common options from the list plus an "Other" escape hatch.
-   - **Mode**: Which research mode to use. Options: (a) "Single experiment (/launch-research-loop)" — runs one experiment and stops; (b) "Ralph mode (/launch-research-ralph)" — runs experiments in a loop, each building on the last, until the research goal is met.
+   - **Mode**: Which research mode to use. Options: (a) "Single experiment (/zombuul:launch-research-loop)" — runs one experiment and stops; (b) "Ralph mode (/zombuul:launch-research-ralph)" — runs experiments in a loop, each building on the last, until the research goal is met.
 
 4. **Sync gitignored data**: Read the experiment spec and check for references to data files (activations, embeddings, results, etc.) that are likely gitignored. Look for those files locally (follow symlinks). If any exist, ask the user which ones to sync to the pod using AskUserQuestion — list the files with their sizes as options (multiSelect). Sync the selected files after setup completes (step 5) using rsync.
 
@@ -52,7 +52,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 10. **Copy .env**: If a `.env` file exists in the current working directory:
    `scp .env runpod-<pod_name>:/workspace/repo/.env`
 
-11. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it with `nohup`. Use the command the user chose in step 3 (`/launch-research-loop` or `/launch-research-ralph`). Pass the full path to the spec file (not `@` syntax):
+11. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it with `nohup`. Use the command the user chose in step 3 (`/zombuul:launch-research-loop` or `/zombuul:launch-research-ralph`). Pass the full path to the spec file (not `@` syntax):
    - Use the **Write tool** to create `/tmp/launch_research.sh` locally with this content (substitute the chosen command and spec path):
      ```
      source ~/.bash_profile
@@ -69,7 +69,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - The research loop is running on the pod.
    - SSH command: `ssh runpod-<pod_name>`
    - To watch progress: `tail -f /workspace/research.log`
-   - The pod will auto-terminate after the research loop finishes. Run `/stop-runpod` to terminate early if needed.
+   - The pod will auto-terminate after the research loop finishes. Run `/zombuul:stop-runpod` to terminate early if needed.
 
 14. **Friction check**: Before finishing, reflect on whether anything went wrong or was harder than expected during this command (SSH failures, RunPod API issues, wrong paths, pod setup errors, confusing instructions, etc.). If there was friction and `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set, post a short friction report to Slack for each issue:
    `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d '{"channel": "'$SLACK_CHANNEL_ID'", "text": ":warning: *Friction report* (launch-research-pod)\n> <one-line summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}' https://slack.com/api/chat.postMessage`
