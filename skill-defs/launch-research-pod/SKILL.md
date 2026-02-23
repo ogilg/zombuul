@@ -40,12 +40,12 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 9. **Copy .env**: If a `.env` file exists in the current working directory:
    `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no .env root@<IP>:/workspace/repo/.env`
 
-10. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it with `nohup`. Use the **namespaced** command the user chose in step 3 (`/zombuul:launch-research-loop` or `/zombuul:launch-research-ralph`) — the non-namespaced versions don't resolve on the pod. Pass the full path to the spec file (not `@` syntax):
+10. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it with `nohup`. Use the command the user chose in step 3 (`/launch-research-loop` or `/launch-research-ralph`). Pass the full path to the spec file (not `@` syntax):
    - Use the **Write tool** to create `/tmp/launch_research.sh` locally with this content (substitute the chosen command and spec path):
      ```
      source ~/.bash_profile
      cd /workspace/repo
-     IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high -p '/zombuul:<chosen_command> <full_spec_path>'
+     IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high -p '/<chosen_command> <full_spec_path>'
      runpodctl stop pod $RUNPOD_POD_ID
      ```
    - SCP it to the pod: `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no /tmp/launch_research.sh root@<IP>:/tmp/launch_research.sh`
