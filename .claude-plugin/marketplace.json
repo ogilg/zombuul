@@ -6,17 +6,17 @@
       "name": "zombuul",
       "source": "./",
       "description": "Autonomous research loops on GPU pods with Claude Code",
-      "commands": [
-        "./skills/check-slack/SKILL.md",
-        "./skills/launch-research-loop/SKILL.md",
-        "./skills/launch-research-pod/SKILL.md",
-        "./skills/launch-research-ralph/SKILL.md",
-        "./skills/launch-runpod/SKILL.md",
-        "./skills/pause-runpod/SKILL.md",
-        "./skills/resume-runpod/SKILL.md",
-        "./skills/review-experiment-report/SKILL.md",
-        "./skills/setup/SKILL.md",
-        "./skills/stop-runpod/SKILL.md"
+      "skills": [
+        "./skills/check-slack",
+        "./skills/launch-research-loop",
+        "./skills/launch-research-pod",
+        "./skills/launch-research-ralph",
+        "./skills/launch-runpod",
+        "./skills/pause-runpod",
+        "./skills/resume-runpod",
+        "./skills/review-experiment-report",
+        "./skills/setup",
+        "./skills/stop-runpod"
       ]
     }
   ]
