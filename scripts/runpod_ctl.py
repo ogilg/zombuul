@@ -11,12 +11,52 @@ import sys
 import time
 
 import runpod
+import yaml
 from dotenv import load_dotenv
 
 print = functools.partial(print, flush=True)
 
 SSH_KEY = "~/.ssh/id_ed25519"
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"]
+USER_CONFIG = "~/.claude/zombuul.yaml"
+VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id"}
+
+
+def load_config() -> dict:
+    shipped = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "defaults.yaml")
+    with open(shipped) as f:
+        config = yaml.safe_load(f)
+
+    user_file = os.path.expanduser(USER_CONFIG)
+    if os.path.exists(user_file):
+        with open(user_file) as f:
+            overrides = yaml.safe_load(f) or {}
+        unknown = set(overrides) - VALID_CONFIG_KEYS
+        if unknown:
+            print(f"WARNING: Unknown keys in {user_file}: {', '.join(sorted(unknown))}")
+        config.update(overrides)
+    return config
+
+
+def show_config():
+    shipped = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "defaults.yaml")
+    with open(shipped) as f:
+        defaults = yaml.safe_load(f)
+
+    user_file = os.path.expanduser(USER_CONFIG)
+    user_overrides = {}
+    if os.path.exists(user_file):
+        with open(user_file) as f:
+            user_overrides = yaml.safe_load(f) or {}
+        print(f"Config: {user_file}")
+    else:
+        print(f"Config: defaults (no {USER_CONFIG})")
+
+    config = dict(defaults)
+    config.update(user_overrides)
+    for k, v in sorted(config.items()):
+        marker = " (user)" if k in user_overrides else ""
+        print(f"  {k}: {v}{marker}")
 
 
 def load_api_key():
@@ -250,10 +290,7 @@ def list_gpus():
         print(f"  {gpu['id']:45s} {gpu['memoryInGb']}GB")
 
 
-CPU_INSTANCE_ID = "cpu3c-2-4"
-
-
-def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 50, gpu_count: int = 1):
+def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4"):
     kind = gpu_type_id or "CPU-only"
     print(f"Creating pod '{name}' with {kind}...")
     try:
@@ -272,7 +309,7 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
             env=get_pod_env(),
         )
         if not gpu_type_id:
-            kwargs["instance_id"] = CPU_INSTANCE_ID
+            kwargs["instance_id"] = cpu_instance_id
             kwargs["container_disk_in_gb"] = min(disk_gb, 20)
         pod = runpod.create_pod(**kwargs)
     except Exception as e:
@@ -348,24 +385,27 @@ def setup_status(pod_id: str):
 
 
 def main():
+    config = load_config()
+
     parser = argparse.ArgumentParser(description="RunPod management")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("gpus", help="List available GPU types")
     sub.add_parser("list", help="List running pods")
+    sub.add_parser("config", help="Show current effective config")
 
     create = sub.add_parser("create", help="Create a new pod")
     create.add_argument("--name", required=True)
     hw_group = create.add_mutually_exclusive_group(required=True)
     hw_group.add_argument("--gpu", help="GPU type ID")
     hw_group.add_argument("--cpu", action="store_true", help="Create a CPU-only pod (no GPU)")
-    create.add_argument("--image", required=True)
+    create.add_argument("--image", default=config["docker_image"], help=f"Docker image (default: from config)")
     create.add_argument("--repo-url", default=None, help="Git repo URL to clone on pod (default: current repo's origin)")
     create.add_argument("--branch", default=None, help="Git branch to checkout on pod (default: current branch)")
     create.add_argument("--python", default="3.12", help="Python version for venv (default: 3.12)")
-    create.add_argument("--gpu-count", type=int, default=1, help="Number of GPUs (default: 1)")
-    create.add_argument("--volume-gb", type=int, default=50)
-    create.add_argument("--disk-gb", type=int, default=200)
+    create.add_argument("--gpu-count", type=int, default=config["gpu_count"], help=f"Number of GPUs (default: {config['gpu_count']})")
+    create.add_argument("--volume-gb", type=int, default=config["volume_gb"], help=f"Volume size in GB (default: {config['volume_gb']})")
+    create.add_argument("--disk-gb", type=int, default=config["disk_gb"], help=f"Disk size in GB (default: {config['disk_gb']})")
 
     stop = sub.add_parser("stop", help="Terminate a pod")
     stop.add_argument("pod_id")
@@ -381,6 +421,10 @@ def main():
 
     args = parser.parse_args()
 
+    if args.command == "config":
+        show_config()
+        return
+
     load_api_key()
 
     if args.command == "gpus":
@@ -391,7 +435,12 @@ def main():
         repo_url = args.repo_url or get_repo_url()
         branch = args.branch or get_current_branch()
         gpu = None if args.cpu else args.gpu
-        create_pod(args.name, gpu, args.image, repo_url, branch, args.python, args.volume_gb, args.disk_gb, args.gpu_count)
+        create_pod(
+            args.name, gpu, args.image, repo_url, branch,
+            python_version=args.python, volume_gb=args.volume_gb,
+            disk_gb=args.disk_gb, gpu_count=args.gpu_count,
+            cpu_instance_id=config["cpu_instance_id"],
+        )
     elif args.command == "stop":
         stop_pod(args.pod_id)
     elif args.command == "pause":
