@@ -20,7 +20,7 @@ And then ask claude to set it up.
 /zombuul:launch-research-pod experiments/my_question/my_question_spec.md
 ```
 
-This spins up a RunPod GPU, clones your repo, installs deps, then launches a headless Claude Code session with `--dangerously-skip-permissions` inside tmux. That agent reads your spec, runs the experiment autonomously (baseline, iterations, plots, report), pushes a branch with the results, and terminates the pod.
+This spins up a RunPod GPU, clones your repo, installs deps, then launches a headless Claude Code session with `--dangerously-skip-permissions`. That agent reads your spec, runs the experiment autonomously (baseline, iterations, plots, report), pushes a branch with the results, and terminates the pod. An SSH alias (`runpod-<pod_name>`) is added to `~/.ssh/config` automatically.
 
 ## Commands
 
@@ -52,9 +52,10 @@ You (local Claude Code)              Pod (RunPod GPU)
  │  /launch-research-pod spec.md      │
  │  ─ pick GPU                        │
  │  ─ create pod ───────────────────> │ clone repo, install deps
- │  ─ SCP .env + data ─────────────> │
+ │  ─ sync .env + data ────────────> │
+ │  ─ add ssh alias (runpod-<name>) │
  │  ─ launch claude --dangerously-  > │
- │    skip-permissions in tmux        │
+ │    skip-permissions via nohup      │
  │                                    │ read spec
  │                                    │ run baseline
  │                                    │ iterate (code, analysis, plots)
