@@ -1,5 +1,5 @@
 ---
-name: setup
+name: zombuul:setup
 description: >
   Interactive onboarding for zombuul. Walks through prerequisites, API keys,
   .env creation, and verifies everything works. Run this after installing the plugin.

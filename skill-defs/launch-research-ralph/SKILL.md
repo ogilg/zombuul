@@ -1,5 +1,5 @@
 ---
-name: launch-research-ralph
+name: zombuul:launch-research-ralph
 description: >
   Run a multi-experiment research program that iterates until the research goal is met.
   Argument $ARGUMENTS — path to top-level experiment directory.

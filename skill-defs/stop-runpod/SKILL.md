@@ -1,5 +1,5 @@
 ---
-name: stop-runpod
+name: zombuul:stop-runpod
 description: List and terminate RunPod pods.
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion

@@ -1,5 +1,5 @@
 ---
-name: launch-research-pod
+name: zombuul:launch-research-pod
 description: >
   Spin up a RunPod GPU pod and launch a research loop on it.
   Argument $ARGUMENTS — path to experiment spec (e.g. experiments/content_orthogonal_gemma2base.md).

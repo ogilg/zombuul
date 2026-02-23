@@ -1,5 +1,5 @@
 ---
-name: launch-research-loop
+name: zombuul:launch-research-loop
 description: >
   Run an autonomous research loop for a single experiment.
   Argument $ARGUMENTS — path to experiment spec.

@@ -1,5 +1,5 @@
 ---
-name: launch-runpod
+name: zombuul:launch-runpod
 description: >
   Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name.
 user-invocable: true

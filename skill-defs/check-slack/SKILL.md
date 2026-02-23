@@ -1,5 +1,5 @@
 ---
-name: check-slack
+name: zombuul:check-slack
 description: Check the zombuul Slack channel for agent messages.
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion
