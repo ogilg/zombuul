@@ -7,16 +7,16 @@
       "source": "./",
       "description": "Autonomous research loops on GPU pods with Claude Code",
       "skills": [
-        "./skills/check-slack",
-        "./skills/launch-research-loop",
-        "./skills/launch-research-pod",
-        "./skills/launch-research-ralph",
-        "./skills/launch-runpod",
-        "./skills/pause-runpod",
-        "./skills/resume-runpod",
-        "./skills/review-experiment-report",
-        "./skills/setup",
-        "./skills/stop-runpod"
+        "./skill-defs/check-slack",
+        "./skill-defs/launch-research-loop",
+        "./skill-defs/launch-research-pod",
+        "./skill-defs/launch-research-ralph",
+        "./skill-defs/launch-runpod",
+        "./skill-defs/pause-runpod",
+        "./skill-defs/resume-runpod",
+        "./skill-defs/review-experiment-report",
+        "./skill-defs/setup",
+        "./skill-defs/stop-runpod"
       ]
     }
   ]
