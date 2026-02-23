@@ -59,10 +59,12 @@ install_gh() {
 retry "install gh" 3 10 install_gh
 
 # --- git auth (before any clone) ---
+# Use gh CLI as credential helper instead of embedding token in URL.
+# Embedding the token in the URL triggers GitHub push protection on push.
 
 if [ -n "$GH_TOKEN" ]; then
-    git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
-    git config --global url."https://${GH_TOKEN}@github.com/".insteadOf "git@github.com:"
+    echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && echo "Logged into GitHub (for git auth)." || echo "WARNING: gh login failed."
+    git config --global credential.helper '!gh auth git-credential'
 fi
 
 # --- clone repo ---
@@ -130,9 +132,7 @@ if [ -n "$HF_TOKEN" ]; then
     hf auth login --token "$HF_TOKEN" 2>/dev/null && echo "Logged into Hugging Face." || echo "WARNING: HF login failed (non-critical)."
 fi
 
-if [ -n "$GH_TOKEN" ]; then
-    echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && echo "Logged into GitHub." || echo "WARNING: gh login failed (non-critical)."
-fi
+# gh auth already done above (before clone)
 
 # --- zombuul plugin ---
 
