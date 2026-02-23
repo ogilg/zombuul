@@ -56,7 +56,24 @@ For each missing item, help the user fix it:
 - **No ralph-wiggum**: ask if they want it, if yes tell them to run `/plugin marketplace add anthropics/claude-code` then install ralph-loop
 - **No config file**: copy `${CLAUDE_PLUGIN_ROOT}/defaults.yaml` to `~/.claude/zombuul.yaml`. Tell the user they can edit `~/.claude/zombuul.yaml` to change pod defaults (volume size, disk size, docker image, GPU count, etc.)
 
-## Phase 4: Test API connection
+## Phase 4: Customize pod defaults
+
+After all prerequisites are resolved, read the current config from `~/.claude/zombuul.yaml` and the defaults from `${CLAUDE_PLUGIN_ROOT}/defaults.yaml`. Use AskUserQuestion to ask the user if they want to customize their pod defaults.
+
+If the user says **no**, skip to Phase 5.
+
+If the user says **yes**, ask about all settings in a single AskUserQuestion call with multiple questions:
+
+1. **Volume size** (persistent storage in GB) — offer the current value as "(current)", plus 2-3 reasonable alternatives. Common values: 50, 100, 200, 500.
+2. **Disk size** (container disk in GB) — offer the current value as "(current)", plus alternatives. Common values: 100, 200, 400.
+3. **GPU count** — offer 1, 2, 4.
+4. **Docker image** — offer the current image as "(current)", plus any newer PyTorch images you know of. The "Other" option (auto-provided by AskUserQuestion) lets them paste a custom image.
+
+Skip `cpu_instance_id` — it's too niche for the interactive flow.
+
+After the user answers, only update `~/.claude/zombuul.yaml` if any values actually changed. Write the full config file (all fields, not just changed ones) using the Write tool.
+
+## Phase 5: Test API connection
 
 Run this command to verify the RunPod API key works:
 ```bash
@@ -65,7 +82,7 @@ python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus
 
 If it fails, help debug (wrong key, missing package, etc.).
 
-## Phase 5: Summary
+## Phase 6: Summary
 
 If everything is configured, tell the user they're ready and show:
 ```

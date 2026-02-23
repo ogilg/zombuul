@@ -1,5 +1,5 @@
-volume_gb: 100
-disk_gb: 200
+volume_gb: 50
+disk_gb: 100
 docker_image: "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
 gpu_count: 1
 cpu_instance_id: "cpu3c-2-4"
