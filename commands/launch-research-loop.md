@@ -9,7 +9,7 @@ If `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set in the environment, you can 
 Post to Slack at these moments:
 - **Missing data** — if the spec references files that don't exist on this machine (activations, probe weights, etc.), post immediately listing what's missing and what steps are blocked. Then proceed with whatever steps you can.
 - **Blocking issue** you cannot resolve after multiple attempts
-- **Strong or surprising result** (e.g. significant accuracy jump, unexpected pattern)
+- **Noteworthy result** — positive, negative, or null — that updates our understanding
 - **Experiment complete** (one-line summary of outcome)
 - **Asking for help** — if you're stuck and want human or supervisor input, describe what you need
 
@@ -55,7 +55,8 @@ If `IS_SANDBOX=1` is set, you are running on a remote GPU pod. This means:
 - **Do not give up easily.** If something fails, debug it, try a different approach, read more code, re-examine assumptions. Iterate aggressively.
 - **Do not cut corners.** If the problem requires running experiments, run them. If it requires reading papers or code, read them.
 - **Pay attention to the instructions.** They should define the research space. They should also provide fallback options and different things to try. Do not do something that the instructions tell you not to.
-- **Think about controls.** For each key result, think about what controls or sanity checks would strengthen the claim. Run them without being asked.
+- **Think about controls.** For each key result, think about what controls or sanity checks would test the claim. Run them without being asked.
+- **Report what you find, not what you hoped to find.** A null or negative result is just as informative as a positive one — often more so. Do not spin results, cherry-pick coefficients, or frame ambiguous evidence as support for the hypothesis. If the data doesn't show an effect, say so plainly.
 - **Pilot before scaling.** When running experiments at scale, always run a small pilot first to validate the pipeline, check for obvious issues, and get rough effect sizes. Use pilot results to decide what to iterate on before committing to full runs.
 - **Do not provision infrastructure.** Never create pods, VMs, or cloud resources. You run experiments on the machine you're on.
 - **Results go in the experiment report only.** Do not write results anywhere else. The user will decide where to log them.
