@@ -20,6 +20,7 @@ Run ALL of the following checks before presenting anything to the user:
 6. **Repo .env**: check if `.env` exists in the current working directory and whether it contains: GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL (required), and HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID (optional)
 7. **pyproject.toml**: check if it exists in the current working directory
 8. **ralph-wiggum**: check if `launch-research-ralph` appears in the available skills list (it's in the system prompt)
+9. **Config file**: check if `~/.claude/zombuul.yaml` exists
 
 ## Phase 2: Status report
 
@@ -35,6 +36,7 @@ Zombuul setup status:
   [x] Repo .env — GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL, HF_TOKEN, SLACK_BOT_TOKEN
   [x] pyproject.toml found
   [x] ralph-wiggum installed
+  [x] Config file at ~/.claude/zombuul.yaml
 ```
 
 Use `[ ]` for missing items. Only proceed to Phase 3 if there are missing items.
@@ -52,6 +54,7 @@ For each missing item, help the user fix it:
 - **Missing .env fields**: use AskUserQuestion to collect only the missing required fields (GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL). Mention optional fields but don't require them.
 - **No pyproject.toml**: warn that pod setup expects one (`uv pip install -e .`)
 - **No ralph-wiggum**: ask if they want it, if yes tell them to run `/plugin marketplace add anthropics/claude-code` then install ralph-loop
+- **No config file**: copy `${CLAUDE_PLUGIN_ROOT}/defaults.yaml` to `~/.claude/zombuul.yaml`. Tell the user they can edit `~/.claude/zombuul.yaml` to change pod defaults (volume size, disk size, docker image, GPU count, etc.)
 
 ## Phase 4: Test API connection
 
