@@ -1,3 +1,11 @@
+---
+name: review-experiment-report
+description: >
+  Review and rewrite a research report for clarity.
+  Argument $ARGUMENTS — path to the report markdown file.
+user-invocable: true
+---
+
 Review and rewrite this research report for clarity: $ARGUMENTS
 
 You are reviewing a research report as a **naive reader** — someone who understands ML but has not seen the code, the running log, or any implementation details. Your only inputs are the report itself and the experiment spec.

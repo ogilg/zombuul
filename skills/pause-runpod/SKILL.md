@@ -1,5 +1,7 @@
 ---
+name: pause-runpod
 description: Pause a RunPod pod (stop GPU billing, keep disk).
+user-invocable: true
 allowed-tools: Bash, AskUserQuestion
 ---
 
