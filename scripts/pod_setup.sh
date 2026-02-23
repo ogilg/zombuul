@@ -44,7 +44,7 @@ fi
 # --- system tools ---
 
 retry "apt-get update" 3 10 apt-get update
-retry "install tmux+jq" 3 10 apt-get install -y tmux jq
+retry "install jq+rsync" 3 10 apt-get install -y jq rsync
 
 # gh CLI (non-critical — used for PR operations but not essential)
 install_gh() {

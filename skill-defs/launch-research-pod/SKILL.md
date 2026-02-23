@@ -23,7 +23,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - **GPU**: Which GPU they want. Offer 3-4 common options from the list plus an "Other" escape hatch.
    - **Mode**: Which research mode to use. Options: (a) "Single experiment (/launch-research-loop)" — runs one experiment and stops; (b) "Ralph mode (/launch-research-ralph)" — runs experiments in a loop, each building on the last, until the research goal is met.
 
-4. **Sync gitignored data**: Read the experiment spec and check for references to data files (activations, embeddings, results, etc.) that are likely gitignored. Look for those files locally (follow symlinks). If any exist, ask the user which ones to SCP to the pod using AskUserQuestion — list the files with their sizes as options (multiSelect). SCP the selected files after setup completes (step 5), creating target directories on the pod first with `ssh ... bash -c 'mkdir -p /workspace/repo/<dir>'`.
+4. **Sync gitignored data**: Read the experiment spec and check for references to data files (activations, embeddings, results, etc.) that are likely gitignored. Look for those files locally (follow symlinks). If any exist, ask the user which ones to sync to the pod using AskUserQuestion — list the files with their sizes as options (multiSelect). Sync the selected files after setup completes (step 5) using rsync.
 
 5. **Create the pod**: Read the experiment spec and pick a short, descriptive pod name (2-3 words, kebab-case, e.g. `probe-generalization` or `steering-math`). Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name "<pod_name>" --gpu "<gpu_type_id>"` **in the background** (docker image, volume, and disk size come from config — `~/.claude/zombuul.yaml` or defaults). Parse the SSH IP and port from the output (line like `SSH: ssh root@<IP> -p <PORT> ...`).
 
@@ -35,7 +35,9 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - Create the parent directory: `ssh ... bash -c 'mkdir -p /workspace/repo/<spec_parent_dir>'`
    - Copy the spec: `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no <local_spec_path> root@<IP>:/workspace/repo/<spec_path>`
 
-8. **Sync data**: SCP the files the user selected in step 3. Create target directories first, then copy. This can be done in parallel with .env copy.
+8. **Sync data**: Use rsync to sync directories the user selected in step 3. This avoids the nesting issues of `scp -r` and handles large transfers cleanly. Use this pattern:
+   `rsync -az --no-owner --no-group -e "ssh -p <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" <local_dir>/ root@<IP>:/workspace/repo/<remote_dir>/`
+   Note the trailing slashes — this copies *contents* of `local_dir` into `remote_dir`. This can be done in parallel with .env copy.
 
 9. **Copy .env**: If a `.env` file exists in the current working directory:
    `scp -P <PORT> -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no .env root@<IP>:/workspace/repo/.env`
