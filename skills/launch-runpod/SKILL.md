@@ -1,5 +1,8 @@
 ---
-description: Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name.
+name: launch-runpod
+description: >
+  Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name.
+user-invocable: true
 allowed-tools: Bash, AskUserQuestion, Read, Edit
 ---
 

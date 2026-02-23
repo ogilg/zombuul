@@ -3,7 +3,7 @@ name: setup
 description: >
   Interactive onboarding for zombuul. Walks through prerequisites, API keys,
   .env creation, and verifies everything works. Run this after installing the plugin.
-user_invocable: true
+user-invocable: true
 ---
 
 You are running the zombuul setup wizard. The philosophy is **detect first, ask only when something is missing**. Run all checks silently, then present a summary of what's already configured and what needs action.

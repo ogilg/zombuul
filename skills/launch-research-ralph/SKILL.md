@@ -1,3 +1,11 @@
+---
+name: launch-research-ralph
+description: >
+  Run a multi-experiment research program that iterates until the research goal is met.
+  Argument $ARGUMENTS — path to top-level experiment directory.
+user-invocable: true
+---
+
 You are running a research program — a sequence of experiments that build on each other. This prompt will be re-invoked after each experiment completes.
 
 The argument $ARGUMENTS points to a top-level experiment directory: `experiments/{name}/`.

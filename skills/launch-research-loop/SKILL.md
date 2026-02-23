@@ -1,3 +1,11 @@
+---
+name: launch-research-loop
+description: >
+  Run an autonomous research loop for a single experiment.
+  Argument $ARGUMENTS — path to experiment spec.
+user-invocable: true
+---
+
 Solve this research problem autonomously: $ARGUMENTS
 
 ## Slack
