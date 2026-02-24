@@ -274,10 +274,18 @@ def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: st
         print("  WARNING: No Claude Code credentials found, skipping auth.")
 
     print(f"  Running pod_setup.sh in background (repo: {repo_url}, branch: {branch}, python: {python_version})...")
+    # Write a tiny launcher script on the pod, then nohup that.
+    # Running nohup inline via SSH gets mangled by RunPod's .bashrc escape codes.
+    launcher = f"bash /pod_setup.sh {shlex.quote(repo_url)} {shlex.quote(branch)} {shlex.quote(python_version)}"
     ssh_run(
         ip, port,
-        f"nohup bash /pod_setup.sh {shlex.quote(repo_url)} {shlex.quote(branch)} {shlex.quote(python_version)} > /var/log/pod_setup.log 2>&1 &",
+        f"printf '%s\\n' {shlex.quote(launcher)} > /tmp/run_setup.sh",
         capture_output=True, text=True, check=True,
+    )
+    ssh_run(
+        ip, port,
+        "nohup bash /tmp/run_setup.sh </dev/null > /var/log/pod_setup.log 2>&1 & disown",
+        capture_output=True, text=True,
     )
     print("  Setup running. Check /var/log/pod_setup.log on the pod.")
 

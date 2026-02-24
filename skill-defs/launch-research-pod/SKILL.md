@@ -37,12 +37,25 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
          StrictHostKeyChecking no
      ```
 
-7. **Wait for setup to complete**: Poll every 15 seconds by running `ssh runpod-<pod_name> bash -c 'grep -c "Setup complete" /var/log/pod_setup.log'`. Once it returns "1", setup is done. Show the last line of the log each poll for progress. Timeout after 15 minutes. If setup fails, **do not manually run individual steps** — just re-run `pod_setup.sh` on the pod: `ssh runpod-<pod_name> "nohup bash /pod_setup.sh <repo_url> <branch> <python_version> > /var/log/pod_setup.log 2>&1 &"`. The script is idempotent (skips clone if repo exists).
+7. **Wait for setup to complete**: Poll every 15 seconds by running `ssh runpod-<pod_name> bash -c 'grep -c "Setup complete" /var/log/pod_setup.log; echo DONE'`. Ignore the exit code — check the output for "1" before "DONE". Once it shows "1", setup is done. Show the last line of the log each poll for progress. Timeout after 15 minutes. If setup fails, **do not manually run individual steps** — just re-run `pod_setup.sh` on the pod (see SSH patterns below for how to launch background processes). The script is idempotent (skips clone if repo exists).
 
-   **IMPORTANT — SSH exit codes**: RunPod pods often have terminal escape codes in their shell profile that cause SSH commands to return exit code 1 even when the command succeeded. Always wrap remote commands with `bash -c '...'` to get a clean exit code. For example: `ssh runpod-<pod_name> bash -c 'mkdir -p /workspace/repo/foo'` instead of `ssh runpod-<pod_name> "mkdir -p /workspace/repo/foo"`.
+   **IMPORTANT — SSH command patterns for RunPod**: RunPod pods have shell profiles that emit terminal escape codes (`]11;#000000\`), which cause **every** SSH command to return exit code 1 even when the command succeeds. This cannot be avoided — the escape codes are baked into the pod's `.bashrc`. Follow these patterns:
+
+   **Simple commands** — wrap with `bash -c` and **ignore exit code**. Verify success by checking actual output, not exit code. Append a sentinel like `; echo DONE` so you can confirm the command ran:
+   ```
+   ssh runpod-<pod_name> bash -c 'mkdir -p /workspace/repo/foo; echo OK'
+   ssh runpod-<pod_name> bash -c 'ps aux | grep claude | grep -v grep; echo DONE'
+   ```
+   Exit code will be 1 — that's expected. Check for "OK"/"DONE" in the output.
+
+   **Background processes** (anything that must survive SSH disconnect) — use `nohup` + `</dev/null` + `& disown`:
+   ```
+   ssh runpod-<pod_name> bash -c 'nohup bash /path/to/script.sh </dev/null > /var/log/output.log 2>&1 & disown; echo LAUNCHED'
+   ```
+   All four pieces are required: `nohup` ignores SIGHUP, `</dev/null` detaches stdin, `&` backgrounds, `disown` removes from the shell's job table. Without all four, the process dies when SSH disconnects. Verify by checking for "LAUNCHED" in output, then confirm with a follow-up `ps aux` check.
 
 8. **Sync the experiment spec (REQUIRED)**: The spec file is often not committed/pushed. You MUST SCP it to the pod — never assume it exists from the git clone:
-   - Create the parent directory: `ssh runpod-<pod_name> bash -c 'mkdir -p /workspace/repo/<spec_parent_dir>'`
+   - Create the parent directory: `ssh runpod-<pod_name> bash -c 'mkdir -p /workspace/repo/<spec_parent_dir>; echo OK'`
    - Copy the spec: `scp <local_spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
 
 9. **Sync data**: Use rsync to sync directories the user selected in step 3. This avoids the nesting issues of `scp -r` and handles large transfers cleanly. Use this pattern:
@@ -52,7 +65,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 10. **Copy .env**: If a `.env` file exists in the current working directory:
    `scp .env runpod-<pod_name>:/workspace/repo/.env`
 
-11. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it with `nohup`. Use the command the user chose in step 3 (`/zombuul:launch-research-loop` or `/zombuul:launch-research-ralph`). Pass the full path to the spec file (not `@` syntax):
+11. **Launch the research loop**: Write a launch script locally, SCP it to the pod, then run it as a background process. Use the command the user chose in step 3 (`/zombuul:launch-research-loop` or `/zombuul:launch-research-ralph`). Pass the full path to the spec file (not `@` syntax):
    - Use the **Write tool** to create `/tmp/launch_research.sh` locally with this content (substitute the chosen command and spec path):
      ```
      source ~/.bash_profile
@@ -61,9 +74,9 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
      runpodctl stop pod $RUNPOD_POD_ID
      ```
    - SCP it to the pod: `scp /tmp/launch_research.sh runpod-<pod_name>:/tmp/launch_research.sh`
-   - Launch with nohup: `ssh runpod-<pod_name> bash -c 'nohup bash /tmp/launch_research.sh > /workspace/research.log 2>&1 &'`
+   - Launch as background process: `ssh runpod-<pod_name> bash -c 'nohup bash /tmp/launch_research.sh </dev/null > /workspace/research.log 2>&1 & disown; echo LAUNCHED'`
 
-12. **Verify**: Check that the claude process is running: `ssh runpod-<pod_name> bash -c 'ps aux | grep claude | grep -v grep'`
+12. **Verify**: Check that the claude process is running (ignore exit code, check output): `ssh runpod-<pod_name> bash -c 'ps aux | grep claude | grep -v grep; echo DONE'`
 
 13. **Report to user**:
    - The research loop is running on the pod.
