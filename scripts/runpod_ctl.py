@@ -312,6 +312,50 @@ def setup_status(pod_id: str):
         print(f"  Could not read setup log: {result.stderr.strip()}")
 
 
+def wait_for_setup(pod_id: str, timeout: int = 900, poll_interval: int = 15):
+    """Block until pod setup completes. Prints one-line progress updates."""
+    ip, port = get_ssh_info(pod_id)
+    if not ip:
+        print(f"ERROR: Pod {pod_id} has no public SSH port.")
+        sys.exit(1)
+
+    start = time.time()
+    last_line = ""
+    while time.time() - start < timeout:
+        done = ssh_run(
+            ip, port, "grep -c 'Setup complete' /var/log/pod_setup.log",
+            capture_output=True, text=True, timeout=10,
+        )
+        if done.returncode == 0 and done.stdout.strip() != "0":
+            elapsed = int(time.time() - start)
+            print(f"Setup complete ({elapsed}s)")
+            return
+
+        tail = ssh_run(
+            ip, port, "tail -1 /var/log/pod_setup.log",
+            capture_output=True, text=True, timeout=10,
+        )
+        if tail.returncode == 0:
+            line = tail.stdout.strip()
+            if line and line != last_line:
+                last_line = line
+                # Strip noisy progress lines (apt, pip, git file counts)
+                if not any(noise in line for noise in ("Updating files:", "Reading package", "Building wheels", "Downloading", "Downloaded")):
+                    print(f"  {line}")
+
+        time.sleep(poll_interval)
+
+    elapsed = int(time.time() - start)
+    print(f"ERROR: Setup timed out after {elapsed}s")
+    tail = ssh_run(
+        ip, port, "tail -5 /var/log/pod_setup.log",
+        capture_output=True, text=True, timeout=10,
+    )
+    if tail.returncode == 0:
+        print(f"Last log lines:\n{tail.stdout.strip()}")
+    sys.exit(1)
+
+
 def main():
     config = load_config()
 
@@ -347,6 +391,11 @@ def main():
     status = sub.add_parser("status", help="Check setup progress on a pod")
     status.add_argument("pod_id")
 
+    wait = sub.add_parser("wait-setup", help="Block until pod setup completes")
+    wait.add_argument("pod_id")
+    wait.add_argument("--timeout", type=int, default=900, help="Timeout in seconds (default: 900)")
+    wait.add_argument("--poll-interval", type=int, default=15, help="Poll interval in seconds (default: 15)")
+
     args = parser.parse_args()
 
     if args.command == "config":
@@ -377,6 +426,8 @@ def main():
         resume_pod(args.pod_id)
     elif args.command == "status":
         setup_status(args.pod_id)
+    elif args.command == "wait-setup":
+        wait_for_setup(args.pod_id, timeout=args.timeout, poll_interval=args.poll_interval)
     else:
         parser.print_help()
 
