@@ -10,18 +10,13 @@ Solve this research problem autonomously: $ARGUMENTS
 
 ## Slack
 
-If `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set in the environment, you can communicate via Slack.
+If `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set, you can communicate via Slack.
 
 ### Posting
 
-Post to Slack at these moments:
-- **Missing data** — if the spec references files that don't exist on this machine (activations, probe weights, etc.), post immediately listing what's missing and what steps are blocked. Then proceed with whatever steps you can.
-- **Blocking issue** you cannot resolve after multiple attempts
-- **Noteworthy result** — positive, negative, or null — that updates our understanding
-- **Experiment complete** (one-line summary of outcome)
-- **Asking for help** — if you're stuck and want human or supervisor input, describe what you need
+Post when: missing data (list what's missing, proceed with what you can), blocking issues after multiple attempts, noteworthy results, experiment complete, or asking for help. Do not post routine progress.
 
-Write a JSON file `/tmp/slack_msg.json` with your message, then post it. At the start of the experiment, pick a hex color for your icon and reuse it for every message — remote agents (on a GPU pod) pick from reds/pinks, local agents pick from blues/greens.
+Write `/tmp/slack_msg.json` then post with `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d @/tmp/slack_msg.json https://slack.com/api/chat.postMessage`.
 
 ```json
 {
@@ -32,23 +27,15 @@ Write a JSON file `/tmp/slack_msg.json` with your message, then post it. At the 
 }
 ```
 
-If you know your GPU type (e.g. from the pod), use `"username": "agent-<experiment_name> (<gpu_type>)"`.
+Pick a hex color at the start and reuse it (remote agents: reds/pinks, local: blues/greens). If you know your GPU type, append it to the username.
 
-Post with: `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d @/tmp/slack_msg.json https://slack.com/api/chat.postMessage`
-
-**Message formatting:** Use Slack markdown (`*bold*`, `>` quotes, `\n` newlines) to make messages scannable. Start with a bold headline that captures the gist (e.g. `*Experiment complete: exp3c*` or `*Stuck: OOM during extraction*`), then key details on separate lines. Use `>` block quotes for data/numbers. A reader glancing at the channel should get the point from the headline alone, and can read further for details. Do not post routine progress — only things worth interrupting someone for.
+**Formatting:** Slack markdown (`*bold*`, `>` quotes, `\n` newlines). Lead with a bold headline that captures the gist. Use `>` for data/numbers.
 
 ### Reading
 
-Check Slack for responses by reading recent channel history:
+`curl -s -H "Authorization: Bearer $SLACK_BOT_TOKEN" "https://slack.com/api/conversations.history?channel=$SLACK_CHANNEL_ID&limit=10"`
 
-```
-curl -s -H "Authorization: Bearer $SLACK_BOT_TOKEN" "https://slack.com/api/conversations.history?channel=$SLACK_CHANNEL_ID&limit=10"
-```
-
-Messages from other agents or the user will have a different `username` field than yours. Look for messages that are relevant to you — replies to your questions, new instructions, or help from a supervisor agent.
-
-**When to check:** After posting a question or asking for help, check periodically (e.g. every few minutes while working on other things). Do not block and poll — continue your work and check back between steps. If you haven't posted anything that needs a response, don't check.
+Check periodically after posting questions — don't block and poll. Continue work and check between steps.
 
 ## Environment awareness
 
@@ -58,16 +45,15 @@ If `IS_SANDBOX=1` is set, you are running on a remote GPU pod. This means:
 
 ## Rules
 
-- **Work autonomously.** Do not stop and wait for help. If you're stuck, post to Slack, then keep trying other approaches while you wait. Check back for responses between steps.
+- **Work autonomously.** If stuck, post to Slack and keep trying other approaches. Check back between steps.
 - **Do not game the spec.** Solve the problem in spirit, not just technically.
-- **Do not give up easily.** If something fails, debug it, try a different approach, read more code, re-examine assumptions. Iterate aggressively.
-- **Do not cut corners.** If the problem requires running experiments, run them. If it requires reading papers or code, read them.
-- **Pay attention to the instructions.** They should define the research space. They should also provide fallback options and different things to try. Do not do something that the instructions tell you not to.
-- **Think about controls.** For each key result, think about what controls or sanity checks would test the claim. Run them without being asked.
-- **Report what you find, not what you hoped to find.** A null or negative result is just as informative as a positive one — often more so. Do not spin results, cherry-pick coefficients, or frame ambiguous evidence as support for the hypothesis. If the data doesn't show an effect, say so plainly.
-- **Pilot before scaling.** When running experiments at scale, always run a small pilot first to validate the pipeline, check for obvious issues, and get rough effect sizes. Use pilot results to decide what to iterate on before committing to full runs.
-- **Do not provision infrastructure.** Never create pods, VMs, or cloud resources. You run experiments on the machine you're on.
-- **Results go in the experiment report only.** Do not write results anywhere else. The user will decide where to log them.
+- **Iterate aggressively.** If something fails, debug it, try a different approach, re-examine assumptions.
+- **Follow the spec.** It defines the research space and fallback options. Do not deviate from it.
+- **Think about controls.** Run sanity checks for key results without being asked.
+- **Report honestly.** Null/negative results are informative. Do not spin or cherry-pick.
+- **Pilot before scaling.** Validate the pipeline on a small run before committing to full runs.
+- **Do not provision infrastructure.** Run experiments on the machine you're on.
+- **Results go in the experiment report only.**
 
 ## Directory structure
 
@@ -114,6 +100,4 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
 5. **Review the report.** Launch a subagent (Task tool, subagent_type="general-purpose") with `/review-experiment-report`, passing the path to `report.md`. Do not skip this step.
 6. **Push results.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results) — and push: `git push -u origin research-loop/{experiment_name}`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing.
-7. **Friction check**: Before finishing, reflect on whether anything went wrong or was harder than expected during this research loop (script failures, confusing spec instructions, missing files, API errors, tools that didn't work, etc.). If there was friction and `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set, post a short friction report to Slack for each issue:
-   `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d '{"channel": "'$SLACK_CHANNEL_ID'", "text": ":warning: *Friction report* (launch-research-loop)\n> <one-line summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}' https://slack.com/api/chat.postMessage`
-   If nothing went wrong, skip this step.
+7. **Friction check**: If anything went wrong or was harder than expected (script failures, confusing instructions, missing files, etc.) and Slack is configured, post a friction report using the Slack posting pattern above with `"username": "friction-log"` and format: `:warning: *Friction report* (launch-research-loop)\n> <summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>`. Skip if nothing went wrong.

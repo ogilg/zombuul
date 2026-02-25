@@ -22,24 +22,21 @@ Flag and fix each of these:
 
 ### 1. Straight to the point
 
-Short sentences. No filler. Lead every section with the main result, then give supporting detail. If a reader has to wade through methodology to find out what happened, restructure. Cut any sentence that doesn't add information.
-
-Interpretation/discussion sections should be a bulleted list of one-liners, not paragraphs. Each bullet is one claim with its key supporting number. If it takes more than two sentences, it's too long.
+Lead every section with the main result. Cut filler. Interpretation sections should be bulleted one-liners — one claim with its key number per bullet.
 
 - Bad: "We tried alpha values from 0.1 to 10000 using 5-fold CV. The best alpha was 2154. This gave R²=0.86."
 - Good: "Ridge probes achieve R²=0.86 (best alpha=2154 via 5-fold CV)."
-- Bad interpretation: A paragraph discussing what a technique does, why a gap is small, and what it implies.
-- Good interpretation: "**Augmentation closes the train-test gap** (82% → 79%), suggesting the model isn't overfitting to source-specific artifacts."
+- Bad: A paragraph discussing what a technique does, why a gap is small, and what it implies.
+- Good: "**Augmentation closes the train-test gap** (82% → 79%), suggesting no overfitting to source-specific artifacts."
 
 ### 2. Naming
 
-Find good names for everything — metrics, conditions, groups, axes. A reader should immediately understand what something refers to without needing to look anything up. This goes beyond just avoiding code-internal names: even "plain English" names can be bad if they're vague or ambiguous. Spend time finding the clearest, most precise short name for each concept.
+Find clear, precise short names for metrics, conditions, groups, axes. A reader should understand what something refers to without looking anything up.
 
-- Bad: `cv_r2_mean`, `demean_confounds`, `hoo_acc`
-- Also bad: "the adjusted score", "condition A vs B", "the main metric"
+- Bad: `cv_r2_mean`, `demean_confounds`, "the adjusted score", "condition A vs B"
 - Good: "cross-validated R²", "topic-demeaned Thurstonian scores", "held-one-out accuracy"
 
-Exception: model names, dataset names, and well-known method names (Ridge, Bradley-Terry, etc.) are fine as-is.
+Model names, dataset names, and well-known methods (Ridge, Bradley-Terry, etc.) are fine as-is.
 
 ### 3. Examples give intuition
 
@@ -55,9 +52,7 @@ When introducing a concept, condition, or category, give a concrete example. Exa
 
 ### 4. Choosing the right presentation
 
-Think about whether each piece of information is best shown as a table, a plot, or inline text. Don't default to tables — sometimes a bar chart or scatter plot communicates the pattern faster. Consider what the reader needs to see: exact numbers → table; trends or comparisons → plot; one or two values → inline. When referencing a plot, say what the reader should see in it — describe the pattern, don't just point to it.
-
-Every table column name should be understandable without context. If abbreviations are necessary, add a note below. If a metric is non-standard, define it on first use.
+Pick the best format: exact numbers → table; trends/comparisons → plot; one or two values → inline. When referencing a plot, describe the pattern. Table column names should be understandable without context. Define non-standard metrics on first use.
 
 ### 5. Missing context
 

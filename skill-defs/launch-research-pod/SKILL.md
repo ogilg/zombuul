@@ -39,20 +39,19 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 
 7. **Wait for setup to complete**: Poll every 15 seconds by running `ssh runpod-<pod_name> bash -c 'grep -c "Setup complete" /var/log/pod_setup.log; echo DONE'`. Ignore the exit code — check the output for "1" before "DONE". Once it shows "1", setup is done. Show the last line of the log each poll for progress. Timeout after 15 minutes. If setup fails, **do not manually run individual steps** — just re-run `pod_setup.sh` on the pod (see SSH patterns below for how to launch background processes). The script is idempotent (skips clone if repo exists).
 
-   **IMPORTANT — SSH command patterns for RunPod**: RunPod pods have shell profiles that emit terminal escape codes (`]11;#000000\`), which cause **every** SSH command to return exit code 1 even when the command succeeds. This cannot be avoided — the escape codes are baked into the pod's `.bashrc`. Follow these patterns:
+   **IMPORTANT — SSH patterns for RunPod**: RunPod's `.bashrc` emits escape codes that cause **every** SSH command to return exit code 1. Always ignore exit codes and check output instead.
 
-   **Simple commands** — wrap with `bash -c` and **ignore exit code**. Verify success by checking actual output, not exit code. Append a sentinel like `; echo DONE` so you can confirm the command ran:
+   **Simple commands** — wrap with `bash -c`, append a sentinel:
    ```
    ssh runpod-<pod_name> bash -c 'mkdir -p /workspace/repo/foo; echo OK'
    ssh runpod-<pod_name> bash -c 'ps aux | grep claude | grep -v grep; echo DONE'
    ```
-   Exit code will be 1 — that's expected. Check for "OK"/"DONE" in the output.
 
-   **Background processes** (anything that must survive SSH disconnect) — use `nohup` + `</dev/null` + `& disown`:
+   **Background processes** — all four pieces required (`nohup`, `</dev/null`, `&`, `disown`):
    ```
    ssh runpod-<pod_name> bash -c 'nohup bash /path/to/script.sh </dev/null > /var/log/output.log 2>&1 & disown; echo LAUNCHED'
    ```
-   All four pieces are required: `nohup` ignores SIGHUP, `</dev/null` detaches stdin, `&` backgrounds, `disown` removes from the shell's job table. Without all four, the process dies when SSH disconnects. Verify by checking for "LAUNCHED" in output, then confirm with a follow-up `ps aux` check.
+   Verify with "LAUNCHED" in output, then confirm with `ps aux`.
 
 8. **Sync the experiment spec (REQUIRED)**: The spec file is often not committed/pushed. You MUST SCP it to the pod — never assume it exists from the git clone:
    - Create the parent directory: `ssh runpod-<pod_name> bash -c 'mkdir -p /workspace/repo/<spec_parent_dir>; echo OK'`
@@ -84,6 +83,4 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - To watch progress: `tail -f /workspace/research.log`
    - The pod will auto-terminate after the research loop finishes. Run `/zombuul:stop-runpod` to terminate early if needed.
 
-14. **Friction check**: Before finishing, reflect on whether anything went wrong or was harder than expected during this command (SSH failures, RunPod API issues, wrong paths, pod setup errors, confusing instructions, etc.). If there was friction and `SLACK_BOT_TOKEN` and `SLACK_CHANNEL_ID` are set, post a short friction report to Slack for each issue:
-   `curl -s -X POST -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H 'Content-type: application/json' -d '{"channel": "'$SLACK_CHANNEL_ID'", "text": ":warning: *Friction report* (launch-research-pod)\n> <one-line summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}' https://slack.com/api/chat.postMessage`
-   If nothing went wrong, skip this step.
+14. **Friction check**: If anything went wrong or was harder than expected and Slack is configured, post a friction report: `{"channel": "$SLACK_CHANNEL_ID", "text": ":warning: *Friction report* (launch-research-pod)\n> <summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}`. Skip if nothing went wrong.
