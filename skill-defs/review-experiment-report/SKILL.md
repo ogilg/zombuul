@@ -22,7 +22,7 @@ Flag and fix each of these:
 
 ### 1. Straight to the point
 
-Lead every section with the main result. Cut filler. Interpretation sections should be bulleted one-liners — one claim with its key number per bullet.
+Lead every section with the main result. Cut filler. The report should be dominated by results (numbers, tables, plots), not interpretation. Where interpretation is needed, keep it to short inline remarks or a few bullets — not dedicated Discussion or Implications sections. If a section is mostly prose explaining what results mean, condense it.
 
 - Bad: "We tried alpha values from 0.1 to 10000 using 5-fold CV. The best alpha was 2154. This gave R²=0.86."
 - Good: "Ridge probes achieve R²=0.86 (best alpha=2154 via 5-fold CV)."
