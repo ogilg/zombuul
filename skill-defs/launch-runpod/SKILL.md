@@ -3,7 +3,7 @@ name: zombuul:launch-runpod
 description: >
   Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name.
 user-invocable: true
-allowed-tools: Bash, AskUserQuestion, Read, Edit
+allowed-tools: Bash, AskUserQuestion, Read, Edit, Skill
 ---
 
 Spin up a RunPod GPU pod interactively.
@@ -30,21 +30,14 @@ Spin up a RunPod GPU pod interactively.
    - Add `--image "<image>"` only if the user specified a non-default image.
    Use $ARGUMENTS as the pod name if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, extracts Claude Code credentials from Keychain, then SCPs and runs `pod_setup.sh`.
 
-6. **Update SSH config**: After getting the IP and port, add a `Host runpod-<name>` alias to `~/.ssh/config` (where `<name>` is the pod name from step 5). Use the Edit tool to append this block to the end of the file:
-     ```
-     Host runpod-<name>
-         HostName <ip>
-         User root
-         Port <port>
-         IdentityFile ~/.ssh/id_ed25519
-         StrictHostKeyChecking no
-     ```
+6. **Ask about provisioning**: After getting the pod ID, IP, and port from the create output, ask the user via AskUserQuestion:
+   - **"Provision pod"** (Recommended) — waits for setup to complete, configures SSH alias, syncs .env
+   - **"Raw pod"** — just prints SSH info, no provisioning
 
-7. **SCP the project .env**: If a `.env` file exists in the current working directory, copy it to the pod:
-   `scp .env runpod-<name>:/workspace/repo/.env`
+   If the user chooses **Provision**: invoke `/zombuul:provision-pod` with JSON arguments: `{"pod_id": "<pod_id>", "pod_name": "<name>", "ip": "<ip>", "port": "<port>"}`. The provision skill handles SSH config, wait-setup, and .env sync.
 
-8. **Report to the user**:
-   - SSH command: `ssh runpod-<name>`
+   If the user chooses **Raw pod**: report to the user:
+   - SSH command: `ssh root@<ip> -p <port> -i ~/.ssh/id_ed25519`
    - The setup script is running in the background on the pod (clones repo, installs deps). Check `/var/log/pod_setup.log` on the pod for progress.
    - Once setup is done, run `source ~/.bash_profile && cd /workspace/repo && IS_SANDBOX=1 claude --dangerously-skip-permissions --effort high`.
    - If setup fails, don't debug individual steps — just re-run `pod_setup.sh`: `ssh runpod-<name> 'nohup bash /pod_setup.sh <repo_url> <branch> </dev/null > /var/log/pod_setup.log 2>&1 & disown'`. It's idempotent (skips clone if repo exists).

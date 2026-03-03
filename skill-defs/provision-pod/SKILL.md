@@ -1,0 +1,54 @@
+---
+name: zombuul:provision-pod
+description: >
+  Provision a RunPod pod: wait for setup, configure SSH, sync .env and data.
+  Argument $ARGUMENTS — JSON with keys: pod_id, pod_name, ip, port, and optionally spec_path and data_dirs.
+user-invocable: false
+allowed-tools: Bash, AskUserQuestion, Read, Edit, Agent
+---
+
+Provision a RunPod pod after creation. Handles SSH config, waits for setup to complete, and syncs project files.
+
+## Arguments
+
+`$ARGUMENTS` is a JSON string with these keys:
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `pod_id` | yes | RunPod pod ID |
+| `pod_name` | yes | Pod name (used for SSH alias) |
+| `ip` | yes | SSH IP address |
+| `port` | yes | SSH port |
+| `spec_path` | no | Experiment spec path (triggers spec sync; triggers data recon if `data_dirs` absent) |
+| `data_dirs` | no | Explicit list of local directories to sync (skips recon) |
+
+## Process
+
+1. **Parse arguments**: Parse the JSON from `$ARGUMENTS`. Validate that `pod_id`, `pod_name`, `ip`, and `port` are present.
+
+2. **Update SSH config**: Add a `Host runpod-<pod_name>` alias to `~/.ssh/config`. Use the Edit tool to append this block to the end of the file:
+   ```
+   Host runpod-<pod_name>
+       HostName <ip>
+       User root
+       Port <port>
+       IdentityFile ~/.ssh/id_ed25519
+       StrictHostKeyChecking no
+   ```
+
+3. **Data recon (conditional)**: If `spec_path` is provided but `data_dirs` is NOT:
+   - Launch an Explore agent: "Read the experiment spec at <spec_path>. Find all referenced data file paths (activations .npz, embeddings, topics .json, results directories, configs). Check which exist locally (follow symlinks) and report each with its size (`du -sh`). These are likely gitignored and will need syncing to the pod."
+   - Once the agent returns, ask the user via AskUserQuestion (multiSelect) which data directories to sync, listed with sizes.
+   - Use the user's selection as `data_dirs` for step 4.
+
+4. **Parallel sync + wait**: Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
+
+   - **Wait for setup**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id>` — polls until pod setup is done. If setup fails, re-run `pod_setup.sh` (it's idempotent).
+   - **Sync .env** (if `.env` exists in current working directory): `rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
+   - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && rsync -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
+   - **Sync data directories** (one per directory from `data_dirs`): `rsync -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
+
+5. **Report**: Once all background tasks complete, report:
+   - SSH command: `ssh runpod-<pod_name>`
+   - What was synced (list .env, spec, data dirs as applicable)
+   - Setup status (success or failure with instructions to check `/var/log/pod_setup.log`)
