@@ -110,7 +110,24 @@ retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
-retry "pip install project" 3 10 uv pip install -e .
+# Discover optional dependency groups from pyproject.toml and install all of them.
+# Falls back to base install if parsing fails or no extras exist.
+EXTRAS=""
+if [ -f "$REPO_DIR/pyproject.toml" ]; then
+    EXTRAS=$(python3 -c "
+import tomllib, sys
+with open('$REPO_DIR/pyproject.toml', 'rb') as f:
+    groups = list(tomllib.load(f).get('project', {}).get('optional-dependencies', {}).keys())
+if groups:
+    print(','.join(groups))
+" 2>/dev/null || true)
+fi
+if [ -n "$EXTRAS" ]; then
+    echo "Installing with extras: [$EXTRAS]"
+    retry "pip install project" 3 10 uv pip install -e ".[$EXTRAS]"
+else
+    retry "pip install project" 3 10 uv pip install -e .
+fi
 uv cache clean
 
 # --- git identity ---

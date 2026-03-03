@@ -305,7 +305,7 @@ def setup_status(pod_id: str):
     if not ip:
         print(f"Pod {pod_id} has no public SSH port.")
         return
-    result = ssh_run(ip, port, ["tail", "-5", "/var/log/pod_setup.log"], capture_output=True, text=True, timeout=10)
+    result = ssh_run(ip, port, ["tail", "-5", "/var/log/pod_setup.log"], capture_output=True, text=True, timeout=120)
     if result.returncode == 0:
         print(result.stdout)
     else:
@@ -324,7 +324,7 @@ def wait_for_setup(pod_id: str, timeout: int = 900, poll_interval: int = 15):
     while time.time() - start < timeout:
         done = ssh_run(
             ip, port, "grep -c 'Setup complete' /var/log/pod_setup.log",
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=120,
         )
         if done.returncode == 0 and done.stdout.strip() != "0":
             elapsed = int(time.time() - start)
@@ -333,7 +333,7 @@ def wait_for_setup(pod_id: str, timeout: int = 900, poll_interval: int = 15):
 
         tail = ssh_run(
             ip, port, "tail -1 /var/log/pod_setup.log",
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=120,
         )
         if tail.returncode == 0:
             line = tail.stdout.strip()
@@ -349,7 +349,7 @@ def wait_for_setup(pod_id: str, timeout: int = 900, poll_interval: int = 15):
     print(f"ERROR: Setup timed out after {elapsed}s")
     tail = ssh_run(
         ip, port, "tail -5 /var/log/pod_setup.log",
-        capture_output=True, text=True, timeout=10,
+        capture_output=True, text=True, timeout=120,
     )
     if tail.returncode == 0:
         print(f"Last log lines:\n{tail.stdout.strip()}")
