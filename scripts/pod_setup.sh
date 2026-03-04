@@ -110,9 +110,9 @@ retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
-# Discover optional dependency groups from pyproject.toml and install all of them.
-# Falls back to base install if parsing fails or no extras exist.
-EXTRAS=""
+# Install project dependencies.
+# Supports pyproject.toml (with optional extras), requirements.txt, or setup.py.
+# Skips install if none are found.
 if [ -f "$REPO_DIR/pyproject.toml" ]; then
     EXTRAS=$(python3 -c "
 import tomllib, sys
@@ -121,12 +121,20 @@ with open('$REPO_DIR/pyproject.toml', 'rb') as f:
 if groups:
     print(','.join(groups))
 " 2>/dev/null || true)
-fi
-if [ -n "$EXTRAS" ]; then
-    echo "Installing with extras: [$EXTRAS]"
-    retry "pip install project" 3 10 uv pip install -e ".[$EXTRAS]"
-else
+    if [ -n "$EXTRAS" ]; then
+        echo "Installing with extras: [$EXTRAS]"
+        retry "pip install project" 3 10 uv pip install -e ".[$EXTRAS]"
+    else
+        retry "pip install project" 3 10 uv pip install -e .
+    fi
+elif [ -f "$REPO_DIR/requirements.txt" ]; then
+    echo "No pyproject.toml found; installing from requirements.txt"
+    retry "pip install requirements" 3 10 uv pip install -r requirements.txt
+elif [ -f "$REPO_DIR/setup.py" ]; then
+    echo "No pyproject.toml found; installing from setup.py"
     retry "pip install project" 3 10 uv pip install -e .
+else
+    echo "WARNING: No pyproject.toml, requirements.txt, or setup.py found. Skipping dependency install."
 fi
 uv cache clean
 

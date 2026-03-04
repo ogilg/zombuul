@@ -12,13 +12,13 @@ You are running the zombuul setup wizard. The philosophy is **detect first, ask 
 
 Run ALL checks before presenting anything to the user:
 
-1. **Package manager**: `which uv` and `which pip`
+1. **Package manager**: `which pip` (and optionally `which uv`)
 2. **SSH key**: `~/.ssh/id_ed25519` exists?
-3. **runpod package**: `uv pip show runpod 2>/dev/null` (or `pip show runpod`)
+3. **runpod package**: `pip show runpod 2>/dev/null` (or `uv pip show runpod`)
 4. **RUNPOD_API_KEY**: check `~/.claude/.env` and `.env` for `RUNPOD_API_KEY=`
 5. **Claude Code credentials**: `~/.claude/.credentials.json` exists OR Keychain has `"Claude Code-credentials"` entry
 6. **Repo .env**: `.env` contains GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL (required); HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID (optional)
-7. **pyproject.toml**: exists in cwd?
+7. **Dependency file**: `pyproject.toml`, `requirements.txt`, or `setup.py` exists in cwd?
 8. **ralph-wiggum**: `launch-research-ralph` in available skills?
 9. **Config file**: `~/.claude/zombuul.yaml` exists?
 
@@ -28,13 +28,13 @@ Present a checklist showing what was found:
 
 ```
 Zombuul setup status:
-  [x] uv available
+  [x] pip available (uv also found)
   [x] SSH key at ~/.ssh/id_ed25519
   [x] runpod 1.8.1 installed
   [x] RUNPOD_API_KEY configured (in .env)
   [x] Claude Code credentials extractable
   [x] Repo .env — GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL, HF_TOKEN, SLACK_BOT_TOKEN
-  [x] pyproject.toml found
+  [x] Dependency file found (pyproject.toml)
   [x] ralph-wiggum installed
   [x] Config file at ~/.claude/zombuul.yaml
 ```
@@ -45,13 +45,13 @@ Use `[ ]` for missing items. Only proceed to Phase 3 if there are missing items.
 
 For each missing item:
 
-- **No package manager**: install uv (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- **No package manager**: install pip (or uv via `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **No SSH key**: `ssh-keygen -t ed25519`
 - **No runpod**: install with available package manager
 - **No RUNPOD_API_KEY**: direct to https://www.runpod.io/console/user/settings → API Keys, collect via AskUserQuestion, write to `~/.claude/.env`
 - **No Claude Code credentials**: try `security find-generic-password -s "Claude Code-credentials" -w > ~/.claude/.credentials.json && chmod 600 ~/.claude/.credentials.json`. If that fails, tell them to copy manually.
 - **No .env / missing fields**: create template with required (GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL) and optional (HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID) fields. Collect missing required fields via AskUserQuestion.
-- **No pyproject.toml**: warn that pod setup expects one
+- **No dependency file**: warn that pod setup expects a `pyproject.toml`, `requirements.txt`, or `setup.py` in the repo root. Dependencies will be skipped on the pod if none are present.
 - **No ralph-wiggum**: ask if wanted; if yes, `/plugin marketplace add anthropics/claude-code` then install ralph-loop
 - **No config file**: copy `${CLAUDE_PLUGIN_ROOT}/defaults.yaml` to `~/.claude/zombuul.yaml`
 
