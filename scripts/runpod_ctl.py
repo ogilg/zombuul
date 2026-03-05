@@ -18,7 +18,7 @@ print = functools.partial(print, flush=True)
 SSH_KEY = "~/.ssh/id_ed25519"
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"]
 USER_CONFIG = "~/.claude/zombuul.yaml"
-VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id"}
+VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "template_id"}
 
 
 def load_config() -> dict:
@@ -219,9 +219,12 @@ def list_gpus():
         print(f"  {gpu['id']:45s} {gpu['memoryInGb']}GB")
 
 
-def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4"):
+def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4", template_id: str | None = None):
     kind = gpu_type_id or "CPU-only"
-    print(f"Creating pod '{name}' with {kind}...")
+    if template_id:
+        print(f"Creating pod '{name}' with {kind} (template: {template_id})...")
+    else:
+        print(f"Creating pod '{name}' with {kind}...")
     try:
         kwargs = dict(
             name=name,
@@ -237,6 +240,8 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
             support_public_ip=True,
             env=get_pod_env(),
         )
+        if template_id:
+            kwargs["template_id"] = template_id
         if not gpu_type_id:
             kwargs["instance_id"] = cpu_instance_id
             kwargs["container_disk_in_gb"] = min(disk_gb, 20)
@@ -379,6 +384,7 @@ def main():
     create.add_argument("--gpu-count", type=int, default=config["gpu_count"], help=f"Number of GPUs (default: {config['gpu_count']})")
     create.add_argument("--volume-gb", type=int, default=config["volume_gb"], help=f"Volume size in GB (default: {config['volume_gb']})")
     create.add_argument("--disk-gb", type=int, default=config["disk_gb"], help=f"Disk size in GB (default: {config['disk_gb']})")
+    create.add_argument("--template-id", default=config.get("template_id"), help="RunPod template ID (default: from config)")
 
     stop = sub.add_parser("stop", help="Terminate a pod")
     stop.add_argument("pod_id")
@@ -418,6 +424,7 @@ def main():
             python_version=args.python, volume_gb=args.volume_gb,
             disk_gb=args.disk_gb, gpu_count=args.gpu_count,
             cpu_instance_id=config["cpu_instance_id"],
+            template_id=args.template_id,
         )
     elif args.command == "stop":
         stop_pod(args.pod_id)

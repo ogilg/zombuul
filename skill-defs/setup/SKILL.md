@@ -21,6 +21,7 @@ Run ALL checks before presenting anything to the user:
 7. **Dependency file**: `pyproject.toml`, `requirements.txt`, or `setup.py` exists in cwd?
 8. **ralph-wiggum**: `launch-research-ralph` in available skills?
 9. **Config file**: `~/.claude/zombuul.yaml` exists?
+10. **RunPod template** (optional): `template_id` set in config? (just note it if present, not a prerequisite)
 
 ## Phase 2: Status report
 
@@ -71,6 +72,10 @@ If the user says **yes**, ask about all settings in a single AskUserQuestion cal
 Skip `cpu_instance_id` — it's too niche for the interactive flow.
 
 After the user answers, only update `~/.claude/zombuul.yaml` if any values actually changed. Write the full config file (all fields, not just changed ones) using the Write tool.
+
+### RunPod template (optional)
+
+Ask whether the user has a custom RunPod template. If yes, collect the template ID and write it to `~/.claude/zombuul.yaml`. Mention they can change it later in that file.
 
 ## Phase 5: Test API connection
 
