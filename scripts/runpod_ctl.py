@@ -90,8 +90,9 @@ def ssh_run(ip: str, port: int, command: str | list[str], **kwargs) -> subproces
 # --- Pod info ---
 
 def get_pod_env() -> dict[str, str]:
-    """Collect tokens for the pod from environment and project .env file."""
+    """Collect tokens for the pod from environment, project .env, and ~/.claude/.env."""
     load_dotenv()  # load project .env into os.environ (no-op for already-set vars)
+    load_dotenv(os.path.expanduser("~/.claude/.env"))  # global .env (no-op for already-set vars)
     return {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID") if (v := os.environ.get(k))}
 
 

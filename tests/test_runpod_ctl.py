@@ -1,6 +1,6 @@
 """Basic tests for runpod_ctl.py — CLI parsing and pure helpers."""
 
-import subprocess
+import os
 import sys
 from unittest.mock import patch
 
@@ -20,12 +20,18 @@ def test_ssh_cmd_format():
 
 def test_get_pod_env_filters_correctly():
     with patch.dict("os.environ", {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123", "UNRELATED": "x"}):
-        env = runpod_ctl.get_pod_env()
-        assert env == {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123"}
+        with patch("runpod_ctl.load_dotenv") as mock_load:
+            env = runpod_ctl.get_pod_env()
+            assert env == {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123"}
+            # Verify both .env files are loaded
+            assert mock_load.call_count == 2
+            mock_load.assert_any_call()  # project .env
+            mock_load.assert_any_call(os.path.expanduser("~/.claude/.env"))  # global .env
 
 
 def test_get_pod_env_missing_tokens():
-    with patch.dict("os.environ", {"UNRELATED": "x"}, clear=True):
+    with patch.dict("os.environ", {"UNRELATED": "x"}, clear=True), \
+         patch("runpod_ctl.load_dotenv"):
         env = runpod_ctl.get_pod_env()
         assert env == {}
 

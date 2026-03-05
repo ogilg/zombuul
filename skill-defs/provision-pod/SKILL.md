@@ -36,15 +36,17 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
        StrictHostKeyChecking no
    ```
 
-3. **Data recon (conditional)**: If `spec_path` is provided but `data_dirs` is NOT:
-   - Launch an Explore agent: "Read the experiment spec at <spec_path>. Find all referenced data file paths (activations .npz, embeddings, topics .json, results directories, configs). Check which exist locally (follow symlinks) and report each with its size (`du -sh`). These are likely gitignored and will need syncing to the pod."
-   - Once the agent returns, ask the user via AskUserQuestion (multiSelect) which data directories to sync, listed with sizes.
-   - Use the user's selection as `data_dirs` for step 4.
-
-4. **Parallel sync + wait**: Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
+3. **Phase A — concurrent setup + early sync**: Launch all of the following concurrently using `run_in_background`, then wait for ALL to complete before proceeding to Phase B:
 
    - **Wait for setup**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id>` — polls until pod setup is done. If setup fails, re-run `pod_setup.sh` (it's idempotent).
-   - **Sync .env** (if `.env` exists in current working directory): `rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
+   - **Sync .env to /tmp** (if `.env` exists in current working directory): `scp .env runpod-<pod_name>:/tmp/.env` — this is safe before repo clone completes since `/tmp` always exists.
+   - **Data recon** (if `spec_path` is provided but `data_dirs` is NOT): Launch an Explore agent: "Read the experiment spec at <spec_path>. Find all referenced data file paths (activations .npz, embeddings, topics .json, results directories, configs). Check which exist locally (follow symlinks) and report each with its size (`du -sh`). These are likely gitignored and will need syncing to the pod." Once the agent returns, ask the user via AskUserQuestion (multiSelect) which data directories to sync, listed with sizes. Use the user's selection as `data_dirs` for Phase B.
+
+4. **Phase B — sync to repo** (only after Phase A completes, so `/workspace/repo/` exists):
+
+   Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
+
+   - **Sync .env to repo** (if `.env` exists in current working directory): `rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
    - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && rsync -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
    - **Sync data directories** (one per directory from `data_dirs`): `rsync -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
 
