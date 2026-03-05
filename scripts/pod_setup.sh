@@ -2,6 +2,8 @@
 # Usage: bash pod_setup.sh <repo_url> [branch] [python_version]
 # Generic pod bootstrap for zombuul research loops.
 # Reads git identity and tokens from .env (SCP'd separately).
+# Idempotent: safe to re-run after a partial failure — each step
+# checks its own preconditions and skips with a message if already done.
 set -o pipefail
 
 REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version]}"
@@ -41,13 +43,39 @@ if [ -f /proc/1/environ ]; then
     export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=')
 fi
 
+# Also check for a .env that may have been synced before setup ran.
+# provision-pod syncs .env in parallel with wait-setup, so it may land
+# at $REPO_DIR/.env (if the dir was pre-created) or /tmp/.env as fallback.
+for envfile in "$REPO_DIR/.env" /tmp/.env; do
+    if [ -f "$envfile" ]; then
+        echo "Found .env at $envfile — sourcing tokens."
+        # shellcheck disable=SC2046
+        export $(grep -E '^(GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=' "$envfile" | xargs)
+        break
+    fi
+done
+
 # --- system tools ---
 
-retry "apt-get update" 3 10 apt-get update
-retry "install jq+rsync" 3 10 apt-get install -y jq rsync
+install_system_packages() {
+    local needed=()
+    command -v jq  &>/dev/null || needed+=(jq)
+    command -v rsync &>/dev/null || needed+=(rsync)
+    if [ ${#needed[@]} -eq 0 ]; then
+        echo "[system packages] jq and rsync already installed — skipping."
+        return 0
+    fi
+    echo "[system packages] Installing: ${needed[*]}"
+    apt-get update && apt-get install -y "${needed[@]}"
+}
+retry "install system packages" 3 10 install_system_packages
 
 # gh CLI (non-critical — used for PR operations but not essential)
 install_gh() {
+    if command -v gh &>/dev/null; then
+        echo "[gh] Already installed — skipping."
+        return 0
+    fi
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null \
         && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -71,11 +99,26 @@ fi
 
 clone_repo() {
     if [ -d "$REPO_DIR/.git" ]; then
-        echo "Repo already cloned."
+        echo "[clone] Repo already present — pulling latest instead."
+        git -C "$REPO_DIR" fetch origin
         return 0
     fi
     rm -rf "$REPO_DIR"
-    git clone "$REPO_URL" "$REPO_DIR"
+
+    # For private repos: if GH_TOKEN is available but the gh credential
+    # helper hasn't kicked in yet, inject the token into the clone URL
+    # as a fallback. This covers the case where .env (with the token)
+    # hasn't been synced yet at clone time.
+    local clone_url="$REPO_URL"
+    if [ -n "$GH_TOKEN" ]; then
+        clone_url="${REPO_URL/https:\/\//https://${GH_TOKEN}@}"
+    fi
+
+    git clone "$clone_url" "$REPO_DIR"
+
+    # Rewrite the remote to the clean (tokenless) URL so we never
+    # accidentally push the token and trigger GitHub push-protection.
+    git -C "$REPO_DIR" remote set-url origin "$REPO_URL"
 }
 retry "clone repo" 3 15 clone_repo
 cd "$REPO_DIR" || exit 1
@@ -85,6 +128,10 @@ git checkout "$BRANCH" || git checkout -b "$BRANCH" "origin/$BRANCH"
 # --- Claude Code ---
 
 install_claude() {
+    if command -v claude &>/dev/null; then
+        echo "[claude] Already installed — skipping."
+        return 0
+    fi
     curl -fsSL https://claude.ai/install.sh | bash
 }
 retry "install Claude Code" 3 15 install_claude
@@ -103,10 +150,18 @@ mkdir -p /opt/uv_cache /opt/hf_cache
 
 # --- Python environment ---
 
-pip install uv
+if ! command -v uv &>/dev/null; then
+    pip install uv
+else
+    echo "[uv] Already installed — skipping."
+fi
+
 mkdir -p /opt/venvs
-rm -rf /opt/venvs/research
-retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
+if [ ! -d /opt/venvs/research/bin ]; then
+    retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
+else
+    echo "[venv] /opt/venvs/research already exists — skipping creation."
+fi
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1

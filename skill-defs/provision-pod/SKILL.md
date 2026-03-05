@@ -41,14 +41,17 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
    - Once the agent returns, ask the user via AskUserQuestion (multiSelect) which data directories to sync, listed with sizes.
    - Use the user's selection as `data_dirs` for step 4.
 
-4. **Parallel sync + wait**: Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
+4. **Sync .env first** (if `.env` exists in current working directory): The `.env` contains `GH_TOKEN` which `pod_setup.sh` needs for cloning private repos. Sync it **before** waiting for setup so the token is available when the clone step runs. Sync to both `/tmp/.env` (reliable, always exists) and `/workspace/repo/.env` (final location):
+   - `ssh runpod-<pod_name> 'mkdir -p /workspace/repo'`
+   - `rsync -az --no-owner --no-group .env runpod-<pod_name>:/tmp/.env && rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
+
+5. **Parallel sync + wait**: Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
 
    - **Wait for setup**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id>` — polls until pod setup is done. If setup fails, re-run `pod_setup.sh` (it's idempotent).
-   - **Sync .env** (if `.env` exists in current working directory): `rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
    - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && rsync -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
    - **Sync data directories** (one per directory from `data_dirs`): `rsync -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
 
-5. **Report**: Once all background tasks complete, report:
+6. **Report**: Once all background tasks complete, report:
    - SSH command: `ssh runpod-<pod_name>`
    - What was synced (list .env, spec, data dirs as applicable)
    - Setup status (success or failure with instructions to check `/var/log/pod_setup.log`)
