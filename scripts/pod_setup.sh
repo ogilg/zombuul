@@ -1,7 +1,7 @@
 #!/bin/bash
 # Usage: bash pod_setup.sh <repo_url> [branch] [python_version]
 # Generic pod bootstrap for zombuul research loops.
-# Reads git identity and tokens from .env (SCP'd separately).
+# Tokens come from container env vars (/proc/1/environ), with .env as fallback.
 set -o pipefail
 
 REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version]}"
@@ -41,13 +41,35 @@ if [ -f /proc/1/environ ]; then
     export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=')
 fi
 
+# Fallback: check for .env synced by provision-pod
+for envfile in "$REPO_DIR/.env" /tmp/.env; do
+    if [ -f "$envfile" ]; then
+        echo "Found .env at $envfile — sourcing tokens."
+        # shellcheck disable=SC2046
+        export $(grep -E '^(GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=' "$envfile" | xargs)
+        break
+    fi
+done
+
 # --- system tools ---
 
 retry "apt-get update" 3 10 apt-get update
-retry "install jq+rsync" 3 10 apt-get install -y jq rsync
+
+install_system_packages() {
+    if command -v jq &>/dev/null && command -v rsync &>/dev/null; then
+        echo "jq and rsync already installed."
+        return 0
+    fi
+    apt-get install -y jq rsync
+}
+retry "install jq+rsync" 3 10 install_system_packages
 
 # gh CLI (non-critical — used for PR operations but not essential)
 install_gh() {
+    if command -v gh &>/dev/null; then
+        echo "gh already installed."
+        return 0
+    fi
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null \
         && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -71,20 +93,24 @@ fi
 
 clone_repo() {
     if [ -d "$REPO_DIR/.git" ]; then
-        echo "Repo already cloned."
-        return 0
+        echo "Repo already cloned — fetching latest."
+        git -C "$REPO_DIR" fetch origin
+        return $?
     fi
     rm -rf "$REPO_DIR"
     git clone "$REPO_URL" "$REPO_DIR"
 }
 retry "clone repo" 3 15 clone_repo
 cd "$REPO_DIR" || exit 1
-retry "git fetch" 3 10 git fetch origin
 git checkout "$BRANCH" || git checkout -b "$BRANCH" "origin/$BRANCH"
 
 # --- Claude Code ---
 
 install_claude() {
+    if command -v claude &>/dev/null; then
+        echo "Claude Code already installed."
+        return 0
+    fi
     curl -fsSL https://claude.ai/install.sh | bash
 }
 retry "install Claude Code" 3 15 install_claude
@@ -103,10 +129,13 @@ mkdir -p /opt/uv_cache /opt/hf_cache
 
 # --- Python environment ---
 
-pip install uv
+if ! command -v uv &>/dev/null; then
+    pip install uv
+fi
 mkdir -p /opt/venvs
-rm -rf /opt/venvs/research
-retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
+if [ ! -d /opt/venvs/research/bin ]; then
+    retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
+fi
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
@@ -128,7 +157,6 @@ if [ -n "$EXTRAS" ]; then
 else
     retry "pip install project" 3 10 uv pip install -e .
 fi
-uv cache clean
 
 # --- git identity ---
 
