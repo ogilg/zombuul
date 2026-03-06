@@ -18,7 +18,7 @@ print = functools.partial(print, flush=True)
 SSH_KEY = "~/.ssh/id_ed25519"
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"]
 USER_CONFIG = "~/.claude/zombuul.yaml"
-VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "template_id"}
+VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "python_version", "template_id"}
 
 
 def load_config() -> dict:
@@ -380,7 +380,7 @@ def main():
     create.add_argument("--image", default=config["docker_image"], help=f"Docker image (default: from config)")
     create.add_argument("--repo-url", default=None, help="Git repo URL to clone on pod (default: current repo's origin)")
     create.add_argument("--branch", default=None, help="Git branch to checkout on pod (default: current branch)")
-    create.add_argument("--python", default="3.12", help="Python version for venv (default: 3.12)")
+    create.add_argument("--python", default=config["python_version"], help=f"Python version for venv (default: from config)")
     create.add_argument("--gpu-count", type=int, default=config["gpu_count"], help=f"Number of GPUs (default: {config['gpu_count']})")
     create.add_argument("--volume-gb", type=int, default=config["volume_gb"], help=f"Volume size in GB (default: {config['volume_gb']})")
     create.add_argument("--disk-gb", type=int, default=config["disk_gb"], help=f"Disk size in GB (default: {config['disk_gb']})")
