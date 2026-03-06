@@ -32,7 +32,7 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
        HostName <ip>
        User root
        Port <port>
-       IdentityFile ~/.ssh/id_ed25519
+       IdentityFile <ssh_key from ~/.claude/zombuul.yaml or default ~/.ssh/id_ed25519>
        StrictHostKeyChecking no
    ```
 

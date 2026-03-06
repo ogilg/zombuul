@@ -38,7 +38,7 @@ retry() {
 # Import container env vars (not inherited when run via nohup over SSH)
 if [ -f /proc/1/environ ]; then
     # shellcheck disable=SC2046
-    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=')
+    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|RUNPOD_POD_ID)=')
 fi
 
 # Fallback: check for .env synced by provision-pod
@@ -46,7 +46,7 @@ for envfile in "$REPO_DIR/.env" /tmp/.env; do
     if [ -f "$envfile" ]; then
         echo "Found .env at $envfile — sourcing tokens."
         # shellcheck disable=SC2046
-        export $(grep -E '^(GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID)=' "$envfile" | xargs)
+        export $(grep -E '^(GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY)=' "$envfile" | xargs)
         break
     fi
 done
@@ -217,6 +217,12 @@ if [ -n "$SLACK_BOT_TOKEN" ]; then
 fi
 if [ -n "$SLACK_CHANNEL_ID" ]; then
     echo "export SLACK_CHANNEL_ID=$SLACK_CHANNEL_ID" >> ~/.bash_profile
+fi
+if [ -n "$RUNPOD_API_KEY" ]; then
+    echo "export RUNPOD_API_KEY=$RUNPOD_API_KEY" >> ~/.bash_profile
+fi
+if [ -n "$RUNPOD_POD_ID" ]; then
+    echo "export RUNPOD_POD_ID=$RUNPOD_POD_ID" >> ~/.bash_profile
 fi
 
 # --- summary ---

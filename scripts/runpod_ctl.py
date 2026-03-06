@@ -18,7 +18,7 @@ print = functools.partial(print, flush=True)
 SSH_KEY = "~/.ssh/id_ed25519"
 SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"]
 USER_CONFIG = "~/.claude/zombuul.yaml"
-VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "python_version", "template_id"}
+VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "python_version", "ssh_key", "template_id"}
 
 
 def load_config() -> dict:
@@ -93,7 +93,7 @@ def get_pod_env() -> dict[str, str]:
     """Collect tokens for the pod from environment, project .env, and ~/.claude/.env."""
     load_dotenv()  # load project .env into os.environ (no-op for already-set vars)
     load_dotenv(os.path.expanduser("~/.claude/.env"))  # global .env (no-op for already-set vars)
-    return {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID") if (v := os.environ.get(k))}
+    return {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID", "RUNPOD_API_KEY") if (v := os.environ.get(k))}
 
 
 def get_ssh_info(pod_id: str) -> tuple[str | None, int | None]:
@@ -363,7 +363,9 @@ def wait_for_setup(pod_id: str, timeout: int = 900, poll_interval: int = 15):
 
 
 def main():
+    global SSH_KEY
     config = load_config()
+    SSH_KEY = config["ssh_key"]
 
     parser = argparse.ArgumentParser(description="RunPod management")
     sub = parser.add_subparsers(dest="command")
