@@ -1,5 +1,5 @@
 # Zombuul
 
-## Skill registration
+## Skills
 
-Skills are NOT auto-discovered. When adding a new skill directory under `skill-defs/`, you MUST also add it to the `skills` array in `.claude-plugin/marketplace.json`. If you forget, the skill won't appear in Claude Code even though the file exists.
+Skills are auto-discovered from `skill-defs/`. Each skill is a directory with a `SKILL.md` file containing YAML frontmatter. No manual registration needed — just create the directory and file.
