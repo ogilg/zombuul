@@ -68,6 +68,7 @@ If the user says **yes**, ask about all settings in a single AskUserQuestion cal
 2. **Disk size** (container disk in GB) — offer the current value as "(current)", plus alternatives. Common values: 100, 200, 400.
 3. **GPU count** — offer 1, 2, 4.
 4. **Docker image** — offer the current image as "(current)", plus any newer PyTorch images you know of. The "Other" option (auto-provided by AskUserQuestion) lets them paste a custom image.
+5. **Python version** — offer the current value as "(current)", plus alternatives like 3.11, 3.12, 3.13. This controls the venv Python version on the pod.
 
 Skip `cpu_instance_id` — it's too niche for the interactive flow.
 
