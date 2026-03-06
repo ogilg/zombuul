@@ -13,11 +13,11 @@ You are running the zombuul setup wizard. The philosophy is **detect first, ask 
 Run ALL checks before presenting anything to the user:
 
 1. **Package manager**: `which uv` and `which pip` (uv preferred, pip as fallback)
-2. **SSH key**: `~/.ssh/id_ed25519` exists?
+2. **SSH key**: Check the configured `ssh_key` path (from `~/.claude/zombuul.yaml`, default `~/.ssh/id_ed25519`). Does it exist?
 3. **runpod package**: `uv pip show runpod 2>/dev/null` (or `pip show runpod`)
-4. **RUNPOD_API_KEY**: check `~/.claude/.env` and `.env` for `RUNPOD_API_KEY=`
+4. **RUNPOD_API_KEY**: check both `.env` and `~/.claude/.env` for `RUNPOD_API_KEY=`. It can live in either file.
 5. **Claude Code credentials**: `~/.claude/.credentials.json` exists OR Keychain has `"Claude Code-credentials"` entry
-6. **Repo .env**: `.env` contains GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL (required); HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID (optional)
+6. **Repo .env**: `.env` contains GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL (required); HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID (optional). This file gets synced to pods, so pod-relevant tokens go here.
 7. **Dependency file**: `pyproject.toml`, `requirements.txt`, or `setup.py` exists in cwd?
 8. **ralph-wiggum**: `launch-research-ralph` in available skills?
 9. **Config file**: `~/.claude/zombuul.yaml` exists?
@@ -30,7 +30,7 @@ Present a checklist showing what was found:
 ```
 Zombuul setup status:
   [x] uv available (pip also found)
-  [x] SSH key at ~/.ssh/id_ed25519
+  [x] SSH key found
   [x] runpod 1.8.1 installed
   [x] RUNPOD_API_KEY configured (in .env)
   [x] Claude Code credentials extractable
@@ -47,9 +47,9 @@ Use `[ ]` for missing items. Only proceed to Phase 3 if there are missing items.
 For each missing item:
 
 - **No package manager**: install uv (`curl -LsSf https://astral.sh/uv/install.sh | sh`); if uv is unavailable, fall back to pip
-- **No SSH key**: `ssh-keygen -t ed25519`
+- **No SSH key**: If they have a key at a different path (e.g. `~/.ssh/id_rsa`), set `ssh_key` in `~/.claude/zombuul.yaml`. Otherwise generate one: `ssh-keygen -t ed25519`
 - **No runpod**: install with available package manager
-- **No RUNPOD_API_KEY**: direct to https://www.runpod.io/console/user/settings → API Keys, collect via AskUserQuestion, write to `~/.claude/.env`
+- **No RUNPOD_API_KEY**: direct to https://www.runpod.io/console/user/settings → API Keys, collect via AskUserQuestion, write to the project `.env` (preferred, since it gets synced to pods) or `~/.claude/.env`
 - **No Claude Code credentials**: try `security find-generic-password -s "Claude Code-credentials" -w > ~/.claude/.credentials.json && chmod 600 ~/.claude/.credentials.json`. If that fails, tell them to copy manually.
 - **No .env / missing fields**: create template with required (GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL) and optional (HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID) fields. Collect missing required fields via AskUserQuestion.
 - **No dependency file**: warn that pod setup expects a `pyproject.toml`, `requirements.txt`, or `setup.py` in the repo root. Dependencies will be skipped on the pod if none are present.

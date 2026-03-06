@@ -19,10 +19,10 @@ def test_ssh_cmd_format():
 
 
 def test_get_pod_env_filters_correctly():
-    with patch.dict("os.environ", {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123", "UNRELATED": "x"}):
+    with patch.dict("os.environ", {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123", "RUNPOD_API_KEY": "rp_key", "UNRELATED": "x"}):
         with patch("runpod_ctl.load_dotenv") as mock_load:
             env = runpod_ctl.get_pod_env()
-            assert env == {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123"}
+            assert env == {"HF_TOKEN": "hf_abc", "GH_TOKEN": "gh_xyz", "SLACK_BOT_TOKEN": "xoxb-123", "SLACK_CHANNEL_ID": "C123", "RUNPOD_API_KEY": "rp_key"}
             # Verify both .env files are loaded
             assert mock_load.call_count == 2
             mock_load.assert_any_call()  # project .env
@@ -34,6 +34,24 @@ def test_get_pod_env_missing_tokens():
          patch("runpod_ctl.load_dotenv"):
         env = runpod_ctl.get_pod_env()
         assert env == {}
+
+
+def test_load_config_has_all_expected_keys():
+    config = runpod_ctl.load_config()
+    expected = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "python_version", "ssh_key", "template_id"}
+    assert expected == set(config.keys())
+
+
+def test_load_config_ssh_key_default():
+    config = runpod_ctl.load_config()
+    assert config["ssh_key"] == "~/.ssh/id_ed25519"
+
+
+def test_main_sets_ssh_key_from_config():
+    with patch("sys.argv", ["runpod_ctl.py"]), \
+         patch.object(runpod_ctl, "load_api_key"):
+        runpod_ctl.main()
+    assert runpod_ctl.SSH_KEY == "~/.ssh/id_ed25519"
 
 
 def test_get_current_branch_fallback():

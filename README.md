@@ -20,13 +20,13 @@ And then ask claude to set it up.
 /zombuul:launch-research-pod experiments/my_question/my_question_spec.md
 ```
 
-This spins up a RunPod GPU, clones your repo, installs deps, then launches a headless Claude Code session with `--dangerously-skip-permissions`. That agent reads your spec, runs the experiment autonomously (baseline, iterations, plots, report), pushes a branch with the results, and terminates the pod. An SSH alias (`runpod-<pod_name>`) is added to `~/.ssh/config` automatically.
+This spins up a RunPod GPU, clones your repo, installs deps, then launches a headless Claude Code session with `--dangerously-skip-permissions`. That agent reads your spec, runs the experiment autonomously (baseline, iterations, plots, report), pushes a branch with the results, and pauses the pod (GPU billing stops, disk preserved). An SSH alias (`runpod-<pod_name>`) is added to `~/.ssh/config` automatically.
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `/zombuul:launch-research-pod` | Pick a GPU, spin up a pod, launch a research loop on it. Syncs your `.env` and any data files referenced in the spec. Pod auto-terminates when done. |
+| `/zombuul:launch-research-pod` | Pick a GPU, spin up a pod, launch a research loop on it. Syncs your `.env` and any data files referenced in the spec. Pod auto-pauses when done. |
 | `/zombuul:launch-research-loop` | Run a research loop locally (no pod). Same autonomous agent — reads spec, runs baseline, iterates, writes report, pushes branch. |
 | `/zombuul:launch-research-ralph` | Chain experiments. After each research loop completes, a ralph agent reads the report, decides what to investigate next, writes a follow-up spec, and launches another loop. Repeats until the research goal is met. |
 | `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. Gives you an SSH command and a ready Claude Code environment. |
@@ -40,9 +40,8 @@ This spins up a RunPod GPU, clones your repo, installs deps, then launches a hea
 
 - `pip install runpod` or `uv pip install runpod`
 - SSH key at `~/.ssh/id_ed25519`
-- RUNPOD_API_KEY in `.env` or `~/.claude/.env`
-- A `.env` in your repo root with `GH_TOKEN`, `GIT_USER_NAME`, `GIT_USER_EMAIL`
-- Your repo needs a `pyproject.toml` (the pod runs `uv pip install -e .`)
+- A `.env` in your repo root with `RUNPOD_API_KEY`, `GH_TOKEN`, `GIT_USER_NAME`, `GIT_USER_EMAIL`
+- Your repo needs a `pyproject.toml`, `requirements.txt`, or `setup.py` (the pod auto-detects and installs deps)
 
 ## How it works
 
@@ -61,7 +60,7 @@ You (local Claude Code)              Pod (RunPod GPU)
  │                                    │ iterate (code, analysis, plots)
  │                                    │ write {name}_report.md
  │                                    │ push branch
- │                                    │ terminate pod
+ │                                    │ pause pod
  │                                    │
  │  git pull
  │  experiments/my_question/my_question_report.md
