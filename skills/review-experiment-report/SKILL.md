@@ -50,17 +50,36 @@ When introducing a concept, condition, or category, give a concrete example. Exa
   | math | "You find math tedious and draining" |
   | coding | "Writing code feels mechanical and unpleasant" |
 
-### 4. Choosing the right presentation
+### 4. Framing and mental models
+
+For every key result, ask: "Would someone who hasn't been staring at this experiment for hours understand what this means?" The concepts, conditions, and metrics the author invented during the experiment often make perfect sense to them but are opaque to readers.
+
+- **Question every abstract label.** If a condition is called "condition A vs B", "orig vs swap", or "Direction 1 vs 2", ask: what do these actually mean in plain language? Replace with descriptive names that convey the mechanism being tested. The name should tell the reader *why* the conditions differ, not just *that* they differ.
+- **Question the framing itself.** Is the author presenting results in the most intuitive frame? There's often a better way to slice the same data. A plot titled "metric X by variable Y" is almost always worse than a plot titled with the question being answered. Reframe around the question, not the variable.
+- **Check that plot axes, legends, and titles are self-explanatory.** If you need to read 2 paragraphs of report text to understand what a plot shows, the plot has failed. Every axis label, legend entry, and title should make sense on its own. Legend entries like "Group A (x / y)" that overload two naming schemes are a red flag.
+- **Check color consistency.** If conditions are color-coded in one plot, the same colors should mean the same things across all plots. New colors should not appear without explanation.
+
+### 5. Diagrams for non-obvious setups
+
+If the experiment involves a multi-step procedure, pipeline, or setup where multiple entities interact, check whether a **setup diagram** would help. The procedure may be obvious to the author but readers need to see the flow.
+
+- If the report describes a non-standard experimental setup (not just "train model, evaluate"), a diagram is strongly recommended.
+- The diagram should use concrete examples (specific values, not abstract placeholders) so the reader can trace through what happens step by step.
+- If a diagram already exists, check that it covers all conditions mentioned in the report and uses consistent colors with the results plots.
+
+### 6. Choosing the right presentation
 
 Pick the best format: exact numbers → table; trends/comparisons → plot; one or two values → inline. When referencing a plot, describe the pattern. Table column names should be understandable without context. Define non-standard metrics on first use.
 
-### 5. Missing context
+### 7. Missing context
 
 If a number is presented without a comparison point (baseline, chance level, ceiling), add one. Isolated numbers are hard to interpret.
 
 ## Process
 
 1. Read the spec, then the report.
-2. Make a list of all issues found (grouped by criterion above).
-3. Rewrite the report in place, fixing all issues. Preserve all factual content — you're editing for clarity, not changing results.
-4. After rewriting, briefly summarize what you changed.
+2. For each plot referenced in the report, read the image file and evaluate it against criteria 4-5 above. Plots are the most common source of confusion — axis labels, legends, and color choices that made sense during analysis often don't survive first contact with a reader.
+3. Make a list of all issues found (grouped by criterion above).
+4. Rewrite the report in place, fixing all text issues. Preserve all factual content — you're editing for clarity, not changing results.
+5. For plots that need fixing (bad labels, inconsistent colors, missing context), write and run a replacement plotting script. For missing diagrams (criterion 5), create them.
+6. After rewriting, briefly summarize what you changed.
