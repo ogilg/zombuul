@@ -30,7 +30,6 @@ This spins up a RunPod GPU, clones your repo, installs deps, then launches a hea
 | `/zombuul:launch-research-loop` | Run a research loop locally (no pod). Same autonomous agent — reads spec, runs baseline, iterates, writes report, pushes branch. |
 | `/zombuul:launch-research-ralph` | Chain experiments. After each research loop completes, a ralph agent reads the report, decides what to investigate next, writes a follow-up spec, and launches another loop. Repeats until the research goal is met. |
 | `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. Gives you an SSH command and a ready Claude Code environment. |
-| `/zombuul:stop-runpod` | List running pods and terminate one. |
 | `/zombuul:check-slack` | Read the zombuul Slack channel. Agents post blocking issues and strong results there. |
 | `/zombuul:setup` | Interactive onboarding — detects what's already configured, only asks for what's missing. |
 

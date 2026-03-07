@@ -257,7 +257,6 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
     ip, port = wait_for_ssh(pod_id)
     if not ip:
         print(f"Timed out waiting for pod {pod_id}. Check RunPod dashboard.")
-        print(f"Run: python {os.path.abspath(__file__)} stop " + pod_id)
         return
 
     print(f"\nPod is ready!")
@@ -281,12 +280,6 @@ def list_pods():
         status = pod.get("desiredStatus", "UNKNOWN")
         gpu = pod.get("machine", {}).get("gpuDisplayName", "?")
         print(f"  {pod['id']:25s} {pod['name']:30s} {status:10s} {gpu}")
-
-
-def stop_pod(pod_id: str):
-    print(f"Terminating pod {pod_id}...")
-    runpod.terminate_pod(pod_id)
-    print("Pod terminated.")
 
 
 def pause_pod(pod_id: str):
@@ -388,9 +381,6 @@ def main():
     create.add_argument("--disk-gb", type=int, default=config["disk_gb"], help=f"Disk size in GB (default: {config['disk_gb']})")
     create.add_argument("--template-id", default=config.get("template_id"), help="RunPod template ID (default: from config)")
 
-    stop = sub.add_parser("stop", help="Terminate a pod")
-    stop.add_argument("pod_id")
-
     pause = sub.add_parser("pause", help="Pause a pod (stop GPU billing, keep disk)")
     pause.add_argument("pod_id")
 
@@ -428,8 +418,6 @@ def main():
             cpu_instance_id=config["cpu_instance_id"],
             template_id=args.template_id,
         )
-    elif args.command == "stop":
-        stop_pod(args.pod_id)
     elif args.command == "pause":
         pause_pod(args.pod_id)
     elif args.command == "resume":

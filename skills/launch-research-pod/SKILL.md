@@ -47,7 +47,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - The research loop is running on the pod.
    - SSH command: `ssh runpod-<pod_name>`
    - To watch progress: `tail -f /workspace/research.log`
-   - The pod will auto-pause after the research loop finishes (GPU billing stops, disk preserved). Run `/zombuul:pause-runpod` to pause early, or `/zombuul:stop-runpod` to terminate and delete.
+   - The pod will auto-pause after the research loop finishes (GPU billing stops, disk preserved). Run `/zombuul:pause-runpod` to pause early.
 
 8. **Monitor the pod**: Don't just report and stop. Keep checking on the pod every few minutes (use `sleep`) — tail the research log, check if claude is still running, and give the user brief status updates. Continue until the experiment finishes, errors out, or the pod stops.
 
