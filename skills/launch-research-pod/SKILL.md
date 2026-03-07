@@ -49,4 +49,6 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
    - To watch progress: `tail -f /workspace/research.log`
    - The pod will auto-pause after the research loop finishes (GPU billing stops, disk preserved). Run `/zombuul:pause-runpod` to pause early, or `/zombuul:stop-runpod` to terminate and delete.
 
-8. **Friction check**: If anything went wrong or was harder than expected and Slack is configured, post a friction report: `{"channel": "$SLACK_CHANNEL_ID", "text": ":warning: *Friction report* (launch-research-pod)\n> <summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}`. Skip if nothing went wrong.
+8. **Monitor the pod**: Don't just report and stop. Keep checking on the pod every few minutes (use `sleep`) — tail the research log, check if claude is still running, and give the user brief status updates. Continue until the experiment finishes, errors out, or the pod stops.
+
+9. **Friction check**: If anything went wrong or was harder than expected and Slack is configured, post a friction report: `{"channel": "$SLACK_CHANNEL_ID", "text": ":warning: *Friction report* (launch-research-pod)\n> <summary>\n> *Severity*: minor/moderate/major\n> *Details*: <1-3 sentences>", "username": "friction-log", "icon_url": "https://dummyimage.com/48x48/ff6b6b/ff6b6b.png"}`. Skip if nothing went wrong.
