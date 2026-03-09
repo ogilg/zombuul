@@ -13,7 +13,7 @@ Spin up a RunPod GPU pod and launch an autonomous research loop on it.
 
 1. **Parallel recon**: Launch steps 1a, 1b, and 1c in parallel (three Agent tool calls in a single message):
 
-   **1a. Check for dirty/unpushed experiment dependencies** (Agent, subagent_type=Explore): "Read the experiment spec at <spec_path>. Identify all referenced source modules, configs, and scripts. Then run `git status --porcelain` and `git log @{u}.. --name-only` and report which dirty or unpushed files are relevant to this experiment. Also suggest a short pod name (2-3 words, kebab-case) based on the experiment title."
+   **1a. Check for dirty/unpushed experiment dependencies** (Agent, subagent_type=Explore): "Read the experiment spec at <spec_path>. Identify all referenced source modules, configs, and scripts. Then run `git status --porcelain` and `git log @{u}.. --name-only` and report which dirty or unpushed files are relevant to this experiment. Also suggest a short pod name (2-3 words, kebab-case) based on what distinguishes this experiment from others in the repo."
 
    **1b. Find gitignored data to sync** (Agent, subagent_type=Explore): "Read the experiment spec at <spec_path>. Find all referenced data file paths (activations .npz, embeddings, topics .json, results directories, configs). Check which exist locally (follow symlinks) and report each with its size (`du -sh`). These are likely gitignored and will need syncing to the pod."
 
