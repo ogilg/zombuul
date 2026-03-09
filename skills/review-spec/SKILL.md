@@ -10,20 +10,12 @@ Review this experiment spec for research-loop readiness: $ARGUMENTS
 
 ## What to do
 
-Launch a **subagent** (Task tool, subagent_type="general-purpose") with the prompt below. The subagent simulates a research agent with zero prior context — it only reads what you give it.
+Read the spec, `README.md`, and `CLAUDE.md`. Then launch **three parallel subagents** (Agent tool, subagent_type="general-purpose"). Each simulates a research agent with zero prior context — pass only the spec + README + CLAUDE.md contents, nothing else.
 
-Pass the subagent:
-1. The contents of the experiment spec
-2. The project's `README.md` and `CLAUDE.md`
-
-Do NOT pass any other context. The point is to test whether the spec stands on its own.
-
-### Subagent prompt
+### Shared preamble (include in all three prompts)
 
 ```
 You are reviewing an experiment spec that will be handed to an autonomous research agent running on a GPU pod. The agent has only the git repo and whatever data is synced to the pod. The spec is its sole guide.
-
-## Inputs
 
 Here is the spec:
 <spec>
@@ -39,10 +31,14 @@ Here is the project CLAUDE.md:
 <claude_md>
 {CLAUDE.md contents}
 </claude_md>
+```
 
-## Review checklist
+### Agent 1: Code pointers & data requirements
 
-For each item, flag what's missing or unclear.
+Append to the shared preamble:
+
+```
+Review ONLY the following two aspects. Flag what's missing or unclear.
 
 ### 1. Code pointers
 
@@ -58,11 +54,25 @@ The spec must tell the agent which existing code to use for each pipeline step. 
 - Or does it confirm that no extra data sync is needed?
 - Are input file paths listed explicitly?
 
-### 3. Commit guidance
+## Output
+
+1. **Pass/fail** per item (one line each)
+2. **Issues** — quote the problematic text and suggest a fix
+3. **Suggested additions** — concrete text the user can paste into the spec
+```
+
+### Agent 2: Commit guidance & clarity
+
+Append to the shared preamble:
+
+```
+Review ONLY the following two aspects. Flag what's missing or unclear.
+
+### 1. Commit guidance
 
 - If the experiment produces large artifacts that shouldn't be committed, is that noted?
 
-### 4. Clarity for a context-free agent
+### 2. Clarity for a context-free agent
 
 Read the spec as if you know nothing beyond these three documents. Flag:
 
@@ -73,11 +83,37 @@ Read the spec as if you know nothing beyond these three documents. Flag:
 
 ## Output
 
-1. **Pass/fail** per checklist item (one line each)
+1. **Pass/fail** per item (one line each)
 2. **Issues** — quote the problematic text and suggest a fix
 3. **Suggested additions** — concrete text the user can paste into the spec
 ```
 
-## After the subagent returns
+### Agent 3: Verify code pointers exist
 
-Present its review to the user. If the subagent flagged code pointers to modules it couldn't verify (since it only had README/CLAUDE.md), do a quick check yourself — confirm the referenced modules actually exist in the repo and note any that don't.
+This agent searches the actual repo — it does NOT get the zero-context constraint.
+
+```
+The following experiment spec references code modules and entry points. Your job is to verify that every referenced module, function, class, and entry point actually exists in the repo. Search the codebase for each one.
+
+Here is the spec:
+<spec>
+{spec contents}
+</spec>
+
+For each code reference in the spec, report:
+- **Found** — the module/function exists (give the file path)
+- **Not found** — it doesn't exist, or the name is wrong (suggest the closest match if any)
+
+Only report code references. Do not review anything else.
+```
+
+## After all three agents return
+
+Merge the results into a single review:
+
+1. **Pass/fail summary** — one line per checklist item (code pointers, data requirements, commit guidance, clarity)
+2. **Code pointer verification** — which references exist, which don't
+3. **Issues** — combined from agents 1 and 2, deduplicated
+4. **Suggested additions** — combined from agents 1 and 2
+
+Present to the user.
