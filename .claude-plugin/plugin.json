@@ -1,6 +1,6 @@
 {
   "name": "zombuul",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Autonomous research loops on GPU pods with Claude Code",
   "author": {
     "name": "Oscar Gilg",
