@@ -1,6 +1,6 @@
 # Zombuul
 
-Autonomous research loops on GPU pods with claude --dangerously-skip-permissions.
+Run experiments on GPU pods from local Claude Code.
 
 ## Install
 
@@ -14,23 +14,25 @@ And then ask claude to set it up.
 ## Usage
 
 1. Write an experiment spec — spend time making it good
-2. Launch it:
+2. Run it:
 
 ```
-/zombuul:launch-research-pod experiments/my_question/my_question_spec.md
+/zombuul:run-experiment experiments/my_question/my_question_spec.md
 ```
 
-This spins up a RunPod GPU, clones your repo, installs deps, then launches a headless Claude Code session with `--dangerously-skip-permissions`. That agent reads your spec, runs the experiment autonomously (baseline, iterations, plots, report), pushes a branch with the results, and pauses the pod (GPU billing stops, disk preserved). An SSH alias (`runpod-<pod_name>`) is added to `~/.ssh/config` automatically.
+Your local Claude Code reads the spec, decides if a GPU pod is needed, sets one up if so, then runs the experiment — baseline, iterations, plots, report. GPU-bound work (extraction, training, steering) runs on the pod via SSH; analysis and plotting run locally. Results are synced back, the pod is paused, and the branch is pushed.
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `/zombuul:launch-research-pod` | Pick a GPU, spin up a pod, launch a research loop on it. Syncs your `.env` and any data files referenced in the spec. Pod auto-pauses when done. |
-| `/zombuul:launch-research-loop` | Run a research loop locally (no pod). Same autonomous agent — reads spec, runs baseline, iterates, writes report, pushes branch. |
-| `/zombuul:launch-research-ralph` | Chain experiments. After each research loop completes, a ralph agent reads the report, decides what to investigate next, writes a follow-up spec, and launches another loop. Repeats until the research goal is met. |
-| `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. Gives you an SSH command and a ready Claude Code environment. |
-| `/zombuul:check-slack` | Read the zombuul Slack channel. Agents post blocking issues and strong results there. |
+| `/zombuul:run-experiment` | Run an experiment from a spec. Handles pod creation, data sync, remote/local execution, and reporting. |
+| `/zombuul:review-spec` | Review an experiment spec for completeness before running it. |
+| `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. Gives you an SSH command and a ready environment. |
+| `/zombuul:provision-pod` | Provision a pod: configure SSH, sync .env and data. Called by `run-experiment` automatically. |
+| `/zombuul:pause-runpod` | Pause a pod (stop GPU billing, keep disk). |
+| `/zombuul:resume-runpod` | Resume a paused pod. |
+| `/zombuul:review-experiment-report` | Review and rewrite a research report for clarity. Called by `run-experiment` at the end. |
 | `/zombuul:setup` | Interactive onboarding — detects what's already configured, only asks for what's missing. |
 
 ## Setup details
@@ -47,20 +49,16 @@ This spins up a RunPod GPU, clones your repo, installs deps, then launches a hea
 ```
 You (local Claude Code)              Pod (RunPod GPU)
  │                                    │
- │  /launch-research-pod spec.md      │
- │  ─ pick GPU                        │
- │  ─ create pod ───────────────────> │ clone repo, install deps
+ │  /run-experiment spec.md           │
+ │  ─ read spec                       │
+ │  ─ GPU needed? create pod ──────> │ clone repo, install deps
  │  ─ sync .env + data ────────────> │
- │  ─ add ssh alias (runpod-<name>) │
- │  ─ launch claude --dangerously-  > │
- │    skip-permissions via nohup      │
- │                                    │ read spec
- │                                    │ run baseline
- │                                    │ iterate (code, analysis, plots)
- │                                    │ write {name}_report.md
- │                                    │ push branch
- │                                    │ pause pod
+ │  ─ add ssh alias (runpod-<name>)  │
  │                                    │
- │  git pull
- │  experiments/my_question/my_question_report.md
+ │  ssh runpod-<name> 'python -m ..' │ run GPU-bound work
+ │  (run locally: analysis, plots)    │
+ │  rsync results back <──────────── │
+ │                                    │
+ │  write report, push branch         │
+ │  pause pod                         │
 ```

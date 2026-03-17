@@ -1,21 +1,21 @@
 ---
 name: zombuul:review-spec
 description: >
-  Review an experiment spec for completeness before launching a research loop.
+  Review an experiment spec for completeness before running it.
   Argument $ARGUMENTS — path to the experiment spec.
 user-invocable: true
 ---
 
-Review this experiment spec for research-loop readiness: $ARGUMENTS
+Review this experiment spec for practical readiness: $ARGUMENTS
 
 ## What to do
 
-Read the spec, `README.md`, and `CLAUDE.md`. Then launch **three parallel subagents** (Agent tool, subagent_type="general-purpose"). Each simulates a research agent with zero prior context — pass only the spec + README + CLAUDE.md contents, nothing else.
+Read the spec, `README.md`, and `CLAUDE.md`. Then launch **three parallel subagents** (Agent tool, subagent_type="general-purpose"). Each simulates reading the spec with zero prior context — pass only the spec + README + CLAUDE.md contents, nothing else.
 
 ### Shared preamble (include in all three prompts)
 
 ```
-You are reviewing an experiment spec that will be handed to an autonomous research agent running on a GPU pod. The agent has only the git repo and whatever data is synced to the pod. The spec is its sole guide.
+You are reviewing an experiment spec that will be executed by local Claude Code, with optional GPU pod access for compute-heavy steps. The spec is the sole guide for the experiment.
 
 Here is the spec:
 <spec>
@@ -33,20 +33,21 @@ Here is the project CLAUDE.md:
 </claude_md>
 ```
 
-### Agent 1: Code pointers & data requirements
+### Agent 1: Code & data validation
 
 Append to the shared preamble:
 
 ```
 Review ONLY the following two aspects. Flag what's missing or unclear.
 
-### 1. Code pointers
+### 1. Code reuse
 
-The spec must tell the agent which existing code to use for each pipeline step. Without this, agents reimplement things that already exist.
+This is the most important check. Without explicit code pointers, the executor will reimplement things that already exist — and get subtle details wrong.
 
-- Does each pipeline phase reference specific modules, functions, or entry points?
-- Are there "do not reimplement" warnings for key infrastructure?
+- Does **every** pipeline step reference a specific module, function, or entry point? Vague references like "use the existing pipeline" or "the standard method" are not enough — the spec must name the exact module or function.
+- Are there "do not reimplement" warnings for key infrastructure (extraction, probe training, steering, measurement, elicitation)?
 - If the spec says "use X", check whether the README/CLAUDE.md confirms X exists.
+- If a step could plausibly be done by existing code but the spec doesn't mention it, flag it — the executor will write new code instead of reusing what exists.
 
 ### 2. Data requirements
 
@@ -61,25 +62,42 @@ The spec must tell the agent which existing code to use for each pipeline step. 
 3. **Suggested additions** — concrete text the user can paste into the spec
 ```
 
-### Agent 2: Commit guidance & clarity
+### Agent 2: Practical pitfalls
 
 Append to the shared preamble:
 
 ```
-Review ONLY the following two aspects. Flag what's missing or unclear.
+Review ONLY the following aspects. Flag what's missing or unclear.
 
-### 1. Commit guidance
+### 1. Missing parameter values
 
-- If the experiment produces large artifacts that shouldn't be committed, is that noted?
+- Are all required parameters specified (model name, layers, batch sizes, sample counts, coefficient ranges)?
+- Are there ambiguous references ("the existing pipeline", "the standard method") without specific pointers?
 
-### 2. Clarity for a context-free agent
+### 2. Formats and conventions
 
-Read the spec as if you know nothing beyond these three documents. Flag:
+This is where experiments most often go wrong silently. Flag any of these that are unspecified:
 
-- Ambiguous references ("the existing pipeline", "the standard method") without specific pointers
-- Missing parameter values (model name, layers, batch sizes, sample counts, coefficient ranges)
-- Unclear success criteria — how does the agent know when it's done?
-- Missing output paths — where do results, plots, and the report go?
+- File formats for inputs/outputs (JSON structure, NPZ keys, CSV columns)
+- Prompt templates and response parsing methods — if the spec doesn't say which to use, the executor will invent one
+- Scoring conventions (what scale? higher = better? how are ties handled?)
+- Config file structure (if the step is config-driven, does the spec show the config or point to an example?)
+- Naming conventions for output files
+
+### 3. GPU memory requirements
+
+- Does the experiment involve model loading? If so, is VRAM likely sufficient for the described setup?
+- Are there batch size / sequence length choices that might OOM?
+
+### 4. Success criteria
+
+- How do we know when the experiment is done?
+- Are there clear metrics or thresholds?
+
+### 5. Silent failure risks
+
+- Steps that could fail silently (e.g., empty results, wrong tensor shapes, mismatched task IDs)
+- Missing sanity checks
 
 ## Output
 
@@ -111,7 +129,7 @@ Only report code references. Do not review anything else.
 
 Merge the results into a single review:
 
-1. **Pass/fail summary** — one line per checklist item (code pointers, data requirements, commit guidance, clarity)
+1. **Pass/fail summary** — one line per checklist item (code reuse, data requirements, parameters, formats/conventions, GPU memory, success criteria, silent failures)
 2. **Code pointer verification** — which references exist, which don't
 3. **Issues** — combined from agents 1 and 2, deduplicated
 4. **Suggested additions** — combined from agents 1 and 2
