@@ -8,15 +8,36 @@ user-invocable: true
 
 Run this experiment: $ARGUMENTS
 
-## Infrastructure setup
+## Phase 1: Read spec and launch setup agents
 
-1. Read the spec. Determine if GPU is needed (look for references to GPU, CUDA, model loading, extraction, training on large models, steering).
-2. If GPU needed:
-   - Check for running pods: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`
-   - If a suitable pod is already running (and spec/context suggests using it), use it.
-   - Otherwise: invoke `/zombuul:launch-runpod` to create and provision a pod. The launch-runpod skill handles GPU selection, pod creation, and provisioning. After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
-   - Do NOT ask the user for GPU choice, data dirs, etc. Make reasonable choices. Only ask if truly blocked (e.g., no GPUs available).
-3. If no GPU needed: run everything locally.
+1. **Read the spec** at `$ARGUMENTS`. Determine whether GPU is needed (references to GPU, CUDA, model loading, extraction, training on large models, steering).
+2. **Save the main repo root**: `MAIN_REPO=$(pwd)`.
+3. **Launch two background subagents in parallel** (both with `model: "opus"`, `run_in_background: true`):
+
+   **a) Symlink discovery agent** — reads the spec, scans all data paths it references, cross-checks against `.gitignore`, and returns the exact shell commands to create symlinks. The agent should:
+   - Find every path the spec references (activations dirs, results dirs, probe_data, concept_vectors, config files, score files, etc.)
+   - For each path, check whether it exists in the main repo and whether it's gitignored
+   - Produce a list of symlink commands following these rules:
+     - `activations/`, `probe_data/`, `concept_vectors/` have no tracked files — symlink the entire directory: `rm -rf <dir> && ln -s $MAIN_REPO/<dir> <dir>`
+     - `results/` has tracked files — symlink only specific gitignored files (completions.json, measurements.yaml, steering_results.json) within the subdirectories the spec needs
+     - Only symlink things the experiment READs. Directories it WRITEs to should remain in the worktree.
+   - Return the commands as a newline-separated list, nothing else.
+
+   **b) Infrastructure agent** (only if GPU needed) — checks for running pods and determines what infrastructure is available. The agent should:
+   - Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`
+   - If a suitable pod is already running, return its name and connection details
+   - If no suitable pod exists, return that a new pod is needed (do NOT launch one yet — the main agent will invoke `/zombuul:launch-runpod` after entering the worktree)
+
+4. **Wait for both agents to complete** before proceeding.
+
+## Phase 2: Enter worktree and set up
+
+1. **Enter a worktree**: use the `EnterWorktree` tool with name `{experiment_name}` (derived from the spec path, e.g., `experiments/foo/foo_spec.md` → name `foo`).
+2. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
+3. **Set up infrastructure** if GPU needed:
+   - If the infrastructure agent found a running pod, use it.
+   - Otherwise: invoke `/zombuul:launch-runpod` to create and provision a pod. After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
+   - Do NOT ask the user for GPU choice, data dirs, etc. Make reasonable choices. Only ask if truly blocked.
 
 ## Execution model
 
@@ -32,7 +53,7 @@ Run this experiment: $ARGUMENTS
 - You get notified when background tasks complete — process results then
 
 **Audit on launch:**
-When you launch a long-running job (extraction, training, generation, steering), immediately spawn an audit subagent (Agent tool, subagent_type="general-purpose") in the background. The subagent checks the setup independently — it should not trust your assumptions. Pass it the spec and the paths to all data/config files being used. The subagent should:
+When you launch a long-running job (extraction, training, generation, steering), immediately spawn an audit subagent (Agent tool, subagent_type="general-purpose", model="opus") in the background. The subagent checks the setup independently — it should not trust your assumptions. Pass it the spec and the paths to all data/config files being used. The subagent should:
 
 1. **Data separation.** There should never be any overlap between train, eval, and test data. Load the actual files, extract IDs, and verify.
 2. **Spec compliance.** For each parameter the spec prescribes, find the corresponding value in the config file or script and confirm it matches exactly. List each parameter, the spec value, and the actual value side by side.
@@ -40,6 +61,17 @@ When you launch a long-running job (extraction, training, generation, steering),
 4. **Cross-stage consistency.** If the experiment has multiple stages that should use the same methodology, compare the actual parameters used in each stage (prompts, temperatures, response formats, parsing logic, scoring conventions). Flag any difference — even if it looks intentional, the spec should document it.
 
 If the audit finds problems, kill the running job, fix the issue, and restart. Do not wait for a failed run to complete.
+
+**Data validation between pipeline steps:**
+After each pipeline step completes (extraction, training, evaluation, etc.), spawn a background validation subagent (Agent tool, subagent_type="general-purpose", model="opus") to verify the outputs while you prepare the next step. The subagent should:
+
+1. **File presence.** All expected output files exist and are non-empty.
+2. **Counts.** Sample/row/entry counts match what is expected (from spec or from the input that produced them).
+3. **Format.** Files parse correctly (JSON loads, NPZ loads, YAML loads). Spot-check a few entries for expected structure.
+4. **Magnitude.** Numeric outputs are in reasonable ranges (no NaNs, no wildly out-of-range values). For probe R² values, loss curves, steering coefficients — flag anything suspicious.
+5. **Consistency.** If this step's output feeds the next step, confirm the IDs/keys/shapes are compatible.
+
+Report back a pass/fail summary. If anything fails, flag it immediately — do not let the main agent build on bad outputs.
 
 ## Rules
 
@@ -88,7 +120,7 @@ scripts/{experiment_name}/
 
 All scripts you write during this experiment go here — experiment runners, analysis, plotting, etc.
 
-**Plotting**: Delegate plot creation to subagents (Agent tool, subagent_type="general-purpose"). Describe what to plot and where to save it — the subagent writes the script and runs it. This keeps plotting code out of your context.
+**Plotting**: Delegate plot creation to subagents (Agent tool, subagent_type="general-purpose", model="opus"). Describe what to plot and where to save it — the subagent writes the script and runs it. This keeps plotting code out of your context.
 
 ## Report style guide
 
@@ -96,10 +128,10 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 
 ## Workflow
 
-1. **Read the spec.** Set up infrastructure (see above).
-2. **Branch once.** If you're already on a `research-loop/` branch, stay on it. Otherwise, create one: `git checkout -b research-loop/{experiment_name}`.
+1. **Setup** (Phase 1 + Phase 2 above).
+2. **Read the spec.** Set up infrastructure.
 3. Create scripts workspace, report skeleton, and running log.
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
-5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
+5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
 6. **Sync results.** If a pod was used: sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
-7. **Push results.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results) — and push: `git push -u origin research-loop/{experiment_name}`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing.
+7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing.
