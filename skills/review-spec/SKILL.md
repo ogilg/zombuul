@@ -94,7 +94,12 @@ This is where experiments most often go wrong silently. Flag any of these that a
 - How do we know when the experiment is done?
 - Are there clear metrics or thresholds?
 
-### 5. Silent failure risks
+### 5. Data integrity
+
+- Are training, validation, and test sets explicitly defined as disjoint? If splits are mentioned, is the separation enforced at the right level (e.g., by group, not by individual observation)?
+- If results from one stage feed into another (e.g., selection → evaluation, measurement → steering), is the methodology (prompts, parameters, parsing, scoring) consistent across stages — or is the deviation documented?
+
+### 6. Silent failure risks
 
 - Steps that could fail silently (e.g., empty results, wrong tensor shapes, mismatched task IDs)
 - Missing sanity checks

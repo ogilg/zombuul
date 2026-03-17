@@ -31,6 +31,16 @@ Run this experiment: $ARGUMENTS
 - While waiting: prepare next steps, write analysis code, set up plotting scripts
 - You get notified when background tasks complete — process results then
 
+**Audit on launch:**
+When you launch a long-running job (extraction, training, generation, steering), immediately spawn an audit subagent (Agent tool, subagent_type="general-purpose") in the background. The subagent checks the setup independently — it should not trust your assumptions. Pass it the spec and the paths to all data/config files being used. The subagent should:
+
+1. **Data separation.** There should never be any overlap between train, eval, and test data. Load the actual files, extract IDs, and verify.
+2. **Spec compliance.** For each parameter the spec prescribes, find the corresponding value in the config file or script and confirm it matches exactly. List each parameter, the spec value, and the actual value side by side.
+3. **Input sanity.** For each input file the pipeline reads: confirm it exists, is non-empty, and has the expected format (parses correctly, has the expected keys/columns, sample counts match what the spec says). If the spec says "N samples", count them.
+4. **Cross-stage consistency.** If the experiment has multiple stages that should use the same methodology, compare the actual parameters used in each stage (prompts, temperatures, response formats, parsing logic, scoring conventions). Flag any difference — even if it looks intentional, the spec should document it.
+
+If the audit finds problems, kill the running job, fix the issue, and restart. Do not wait for a failed run to complete.
+
 ## Rules
 
 - **Work autonomously.** Do not ask the user for anything unless completely blocked. Make reasonable assumptions and note them in the running log.
@@ -38,6 +48,10 @@ Run this experiment: $ARGUMENTS
 - **Follow the spec exactly.** The spec defines formats, parameters, methods, and conventions. Pay close attention to subtle details — specific file formats, prompt templates, response parsing methods, scoring conventions, config structures. Getting these wrong silently produces garbage results. If the spec says "use X format" or "use X method", do exactly that.
 - **Do not game the spec.** Solve the problem in spirit, not just technically.
 - **Iterate aggressively.** If something fails, debug it, try a different approach, re-examine assumptions.
+- **Verify data separation.** Before training or evaluating, confirm no sample appears in both the training and evaluation sets. Check at the level that matters — if samples are grouped, split by group, not by individual observation.
+- **Check consistency across stages.** If comparing or combining results from different pipeline stages, verify the methodology (prompts, parameters, parsing, scoring) is identical — or document the deviation and justify it.
+- **Sanity-check before building on results.** After each step, verify the output makes sense (expected counts, reasonable magnitudes, non-empty files) before using it as input to the next step.
+- **Compute, don't transcribe.** Never hand-write numbers in reports. Generate all figures, tables, and examples programmatically from the data.
 - **Think about controls.** Run sanity checks for key results without being asked.
 - **Report honestly.** Null/negative results are informative. Do not spin or cherry-pick.
 - **Pilot before scaling.** Validate the pipeline on a small run before committing to full runs.
