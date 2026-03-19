@@ -104,6 +104,17 @@ This is where experiments most often go wrong silently. Flag any of these that a
 - Steps that could fail silently (e.g., empty results, wrong tensor shapes, mismatched task IDs)
 - Missing sanity checks
 
+### 7. Pre-mortem: what could go wrong?
+
+Assume the experiment runs to completion but produces a useless or misleading result. Think adversarially:
+
+- **Confounds**: Could the result be explained by something other than the intended variable? (e.g., topic/length/format artifacts, shared content between conditions)
+- **Ceiling/floor effects**: Could the metric saturate before the manipulation has a chance to show an effect?
+- **Wrong abstraction level**: Is the spec measuring the right thing? (e.g., measuring accuracy when the question is about calibration, or measuring average when the distribution is bimodal)
+- **Null result ambiguity**: If the experiment finds no effect, can we distinguish "no effect exists" from "method wasn't sensitive enough"? Are there positive controls?
+
+For each risk, suggest a concrete mitigation.
+
 ## Output
 
 1. **Pass/fail** per item (one line each)
@@ -134,7 +145,7 @@ Only report code references. Do not review anything else.
 
 Merge the results into a single review:
 
-1. **Pass/fail summary** — one line per checklist item (code reuse, data requirements, parameters, formats/conventions, GPU memory, success criteria, silent failures)
+1. **Pass/fail summary** — one line per checklist item (code reuse, data requirements, parameters, formats/conventions, GPU memory, success criteria, silent failures, pre-mortem risks)
 2. **Code pointer verification** — which references exist, which don't
 3. **Issues** — combined from agents 1 and 2, deduplicated
 4. **Suggested additions** — combined from agents 1 and 2
