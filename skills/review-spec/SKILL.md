@@ -8,9 +8,17 @@ user-invocable: true
 
 Review this experiment spec for practical readiness: $ARGUMENTS
 
+## Proportionality
+
+**Scale review depth to spec complexity.** A 25-line extraction or analysis spec does not need the same scrutiny as a 100-line multi-phase experiment. Before launching agents, read the spec and estimate complexity:
+
+- **Simple** (~25-40 lines, single step, local execution, existing modules): focus on code pointer verification only (Agent 3). Skip Agents 1 and 2 — their checklists add noise for straightforward specs. Return a brief pass/fail on whether the referenced code exists and the parameters are specified.
+- **Medium** (40-80 lines, 2-3 steps, may need GPU): run all three agents but tell Agents 1 and 2 to keep output to pass/fail items only — no "suggested additions" unless something is actually missing.
+- **Complex** (80+ lines, multi-phase, novel methodology): full review as described below.
+
 ## What to do
 
-Read the spec, `README.md`, and `CLAUDE.md`. Then launch **three parallel subagents** (Agent tool, subagent_type="general-purpose"). Each simulates reading the spec with zero prior context — pass only the spec + README + CLAUDE.md contents, nothing else.
+Read the spec, `README.md`, and `CLAUDE.md`. Then launch subagents as appropriate for the complexity level above. For medium and complex specs, launch **three parallel subagents** (Agent tool, subagent_type="general-purpose"). Each simulates reading the spec with zero prior context — pass only the spec + README + CLAUDE.md contents, nothing else.
 
 ### Shared preamble (include in all three prompts)
 
