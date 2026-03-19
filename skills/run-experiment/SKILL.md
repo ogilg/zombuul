@@ -1,16 +1,38 @@
 ---
 name: zombuul:run-experiment
 description: >
-  Run an experiment from a spec. Handles pod creation, data sync, execution, and reporting.
-  Argument $ARGUMENTS — path to experiment spec.
+  Run an experiment from a spec or description. If given a path to an existing spec, runs it directly.
+  If given a natural language description, synthesizes a spec first, then runs it.
+  Argument $ARGUMENTS — path to experiment spec OR natural language description of the experiment.
 user-invocable: true
 ---
 
 Run this experiment: $ARGUMENTS
 
+## Phase 0: Determine input type
+
+If `$ARGUMENTS` ends in `.md` and the file exists → it's a spec path. Skip to Phase 1.
+
+Otherwise → it's a natural language description. Spawn a **spec synthesis subagent** (Agent tool, subagent_type="general-purpose", model="opus") with the following prompt:
+
+> Write a concise experiment spec from this description and the conversation context.
+>
+> **Description:** {$ARGUMENTS}
+>
+> **Instructions:**
+> - Read `README.md` and `CLAUDE.md` for codebase conventions and available modules.
+> - Read 2-3 short existing specs under `experiments/` for format reference (the shortest specs are ~25 lines — match that brevity for simple experiments).
+> - Derive an experiment name and path. Nest under an existing experiment if it's a follow-up; otherwise create a new directory.
+> - The spec should include: title, core question, models/data, code pointers to existing modules, parameter values, and steps. Omit background, justification, or anything the executing agent can find in the README.
+> - Scale length to complexity. A single-step analysis or extraction needs ~25 lines. A multi-phase experiment with GPU needs more. Never pad.
+> - Write the spec to `experiments/{name}/{name}_spec.md`.
+> - Return the spec path and a one-paragraph summary of key decisions/assumptions.
+
+When the subagent returns, show the user the spec path and summary. Ask: "Want me to run `/zombuul:review-spec` on this, or proceed?" Do not proceed to Phase 1 until the user confirms.
+
 ## Phase 1: Read spec and launch setup agents
 
-1. **Read the spec** at `$ARGUMENTS`. Determine whether GPU is needed (references to GPU, CUDA, model loading, extraction, training on large models, steering).
+1. **Read the spec** (at the confirmed spec path). Determine whether GPU is needed (references to GPU, CUDA, model loading, extraction, training on large models, steering).
 2. **Save the main repo root**: `MAIN_REPO=$(pwd)`.
 3. **Launch two background subagents in parallel** (both with `model: "opus"`, `run_in_background: true`):
 
