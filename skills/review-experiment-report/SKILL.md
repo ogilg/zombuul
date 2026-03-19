@@ -67,19 +67,25 @@ If the experiment involves a multi-step procedure, pipeline, or setup where mult
 - The diagram should use concrete examples (specific values, not abstract placeholders) so the reader can trace through what happens step by step.
 - If a diagram already exists, check that it covers all conditions mentioned in the report and uses consistent colors with the results plots.
 
-### 6. Choosing the right presentation
+### 6. Prefer plots over tables
 
-Pick the best format: exact numbers → table; trends/comparisons → plot; one or two values → inline. When referencing a plot, describe the pattern. Table column names should be understandable without context. Define non-standard metrics on first use.
+Default to plots. Tables with more than ~4 rows of numeric results should be a plot instead. Use tables only when exact numbers matter more than patterns (e.g., final metrics, hyperparameter configs).
 
-### 7. Missing context
+### 7. Plot consistency across reports
+
+Check sibling/parent experiment directories for related reports. If found, read their plots and match the format: same chart type, axis ranges, color mapping, condition ordering, and legend style.
+
+### 8. Missing context
 
 If a number is presented without a comparison point (baseline, chance level, ceiling), add one. Isolated numbers are hard to interpret.
 
 ## Process
 
 1. Read the spec, then the report.
-2. For each plot referenced in the report, read the image file and evaluate it against criteria 4-5 above. Plots are the most common source of confusion — axis labels, legends, and color choices that made sense during analysis often don't survive first contact with a reader.
-3. Make a list of all issues found (grouped by criterion above).
-4. Rewrite the report in place, fixing all text issues. Preserve all factual content — you're editing for clarity, not changing results.
-5. For plots that need fixing (bad labels, inconsistent colors, missing context), write and run a replacement plotting script. For missing diagrams (criterion 5), create them.
-6. After rewriting, briefly summarize what you changed.
+2. Check for related reports in sibling or parent experiment directories. If found, read their plots to establish the visual style to match (criterion 7).
+3. For each plot referenced in the report, read the image file and evaluate it against criteria 4-5 and 7 above. Plots are the most common source of confusion — axis labels, legends, and color choices that made sense during analysis often don't survive first contact with a reader.
+4. Flag any tables that should be plots (criterion 6). When replacing a table with a plot, preserve all the data — the plot should convey strictly more than the table did.
+5. Make a list of all issues found (grouped by criterion above).
+6. Rewrite the report in place, fixing all text issues. Preserve all factual content — you're editing for clarity, not changing results.
+7. For plots that need fixing (bad labels, inconsistent colors, missing context) or tables that should become plots, write and run a replacement plotting script. For missing diagrams (criterion 5), create them.
+8. After rewriting, briefly summarize what you changed.
