@@ -1,12 +1,17 @@
 #!/bin/bash
-# Usage: bash pod_setup.sh <repo_url> [branch] [python_version]
+# Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude]
 # Generic pod bootstrap for zombuul research loops.
 # Tokens come from container env vars (/proc/1/environ), with .env as fallback.
+#
+# install_claude: "true" to install Claude Code + zombuul plugin (for remote-mode
+# experiments where the pod itself runs an agent). Default "false" — local-mode
+# setups only need the repo + Python env, not the agent.
 set -o pipefail
 
-REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version]}"
+REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude]}"
 BRANCH="${2:-main}"
 PYTHON_VERSION="${3:-3.12}"
+INSTALL_CLAUDE="${4:-false}"
 REPO_DIR="/workspace/repo"
 SETUP_FAILURES=()
 
@@ -104,21 +109,33 @@ retry "clone repo" 3 15 clone_repo
 cd "$REPO_DIR" || exit 1
 git checkout "$BRANCH" || git checkout -b "$BRANCH" "origin/$BRANCH"
 
-# --- Claude Code ---
+# --- Claude Code + zombuul plugin ---
 
-install_claude() {
-    if command -v claude &>/dev/null; then
-        echo "Claude Code already installed."
-        return 0
+if [ "$INSTALL_CLAUDE" = "true" ]; then
+    install_claude() {
+        if command -v claude &>/dev/null; then
+            echo "Claude Code already installed."
+            return 0
+        fi
+        curl -fsSL https://claude.ai/install.sh | bash
+    }
+    retry "install Claude Code" 3 15 install_claude
+    export PATH="$HOME/.local/bin:$PATH"
+
+    if ! command -v claude &>/dev/null; then
+        echo "FATAL: claude not found on PATH after install."
+        SETUP_FAILURES+=("claude binary not found")
     fi
-    curl -fsSL https://claude.ai/install.sh | bash
-}
-retry "install Claude Code" 3 15 install_claude
-export PATH="$HOME/.local/bin:$PATH"
 
-if ! command -v claude &>/dev/null; then
-    echo "FATAL: claude not found on PATH after install."
-    SETUP_FAILURES+=("claude binary not found")
+    install_zombuul() {
+        # Remove stale marketplace if present (idempotent re-install)
+        claude plugin marketplace remove ogilg-marketplace 2>/dev/null || true
+        claude plugin marketplace add ogilg/zombuul || return 1
+        claude plugin install zombuul@ogilg-marketplace || return 1
+    }
+    retry "install zombuul plugin" 3 10 install_zombuul
+else
+    echo "Skipping Claude Code install (INSTALL_CLAUDE=false)."
 fi
 
 # --- caches outside NFS ---
@@ -186,16 +203,6 @@ if [ -n "$HF_TOKEN" ]; then
 fi
 
 # gh auth already done above (before clone)
-
-# --- zombuul plugin ---
-
-install_zombuul() {
-    # Remove stale marketplace if present (idempotent re-install)
-    claude plugin marketplace remove ogilg-marketplace 2>/dev/null || true
-    claude plugin marketplace add ogilg/zombuul || return 1
-    claude plugin install zombuul@ogilg-marketplace || return 1
-}
-retry "install zombuul plugin" 3 10 install_zombuul
 
 # --- .bash_profile ---
 

@@ -3,21 +3,31 @@ name: zombuul:run-experiment
 description: >
   Run an experiment from a spec or description. If given a path to an existing spec, runs it directly.
   If given a natural language description, synthesizes a spec first, then runs it.
-  Argument $ARGUMENTS — path to experiment spec OR natural language description of the experiment.
+  Argument $ARGUMENTS — `<spec_path_or_description> [--remote]`. Pass `--remote` to execute
+  autonomously on a GPU pod (survives local disconnects); otherwise runs local-first.
 user-invocable: true
 ---
 
 Run this experiment: $ARGUMENTS
 
-## Phase 0: Determine input type
+## Execution modes (pick one before starting)
 
-If `$ARGUMENTS` ends in `.md` and the file exists → it's a spec path. Skip to Phase 1.
+Check `$IS_SANDBOX` and `$ARGUMENTS`:
 
-Otherwise → it's a natural language description. Spawn a **spec synthesis subagent** (Agent tool, subagent_type="general-purpose", model="opus") with the following prompt:
+- **On-pod mode** — if the `IS_SANDBOX=1` env var is set, you are already inside a GPU pod that was launched by a remote-mode invocation. Jump to [On-pod execution](#on-pod-execution). Do not read the rest of this document first.
+- **Remote-launcher mode** — if `$ARGUMENTS` contains the flag `--remote` (strip it before treating the remainder as the spec path/description), go to [Remote-launcher execution](#remote-launcher-execution).
+- **Local mode** — default. `$ARGUMENTS` has no `--remote` flag and `IS_SANDBOX` is unset. Go to [Local execution](#local-execution).
+
+## Phase 0: Determine input type (all modes)
+
+After identifying the mode, parse what's left of `$ARGUMENTS`:
+
+- Ends in `.md` and the file exists → spec path. Skip spec synthesis.
+- Otherwise → natural language description. Spawn a **spec synthesis subagent** (Agent tool, subagent_type="general-purpose", model="opus") with the following prompt:
 
 > Write a concise experiment spec from this description and the conversation context.
 >
-> **Description:** {$ARGUMENTS}
+> **Description:** {$ARGUMENTS (minus `--remote`)}
 >
 > **Instructions:**
 > - Read `README.md` and `CLAUDE.md` for codebase conventions and available modules.
@@ -28,9 +38,11 @@ Otherwise → it's a natural language description. Spawn a **spec synthesis suba
 > - Write the spec to `experiments/{name}/{name}_spec.md`.
 > - Return the spec path and a one-paragraph summary of key decisions/assumptions.
 
-When the subagent returns, show the user the spec path and summary. Ask: "Want me to run `/zombuul:review-spec` on this, or proceed?" Do not proceed to Phase 1 until the user confirms.
+When the subagent returns, show the user the spec path and summary. Ask: "Want me to run `/zombuul:review-spec` on this, or proceed?" Do not proceed until the user confirms.
 
-## Phase 1: Read spec and launch setup agents
+## Local execution
+
+### Phase 1: Read spec and launch setup agents
 
 1. **Read the spec** (at the confirmed spec path). Determine whether GPU is needed (references to GPU, CUDA, model loading, extraction, training on large models, steering).
 2. **Save the main repo root**: `MAIN_REPO=$(pwd)`.
@@ -52,23 +64,96 @@ When the subagent returns, show the user the spec path and summary. Ask: "Want m
 
 4. **Wait for both agents to complete** before proceeding.
 
-## Phase 2: Enter worktree and set up
+### Phase 2: Enter worktree and set up
 
 1. **Enter a worktree**: use the `EnterWorktree` tool with name `{experiment_name}` (derived from the spec path, e.g., `experiments/foo/foo_spec.md` → name `foo`).
 2. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
 3. **Set up infrastructure** if GPU needed:
    - If the infrastructure agent found a running pod, use it.
-   - Otherwise: invoke `/zombuul:launch-runpod` to create and provision a pod. After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
+   - Otherwise: invoke `/zombuul:launch-runpod` (local mode — do NOT pass `remote`, the pod is just an SSH target). After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
    - Do NOT ask the user for GPU choice, data dirs, etc. Make reasonable choices. Only ask if truly blocked.
+
+Continue to [Execution model](#execution-model) and [Workflow](#workflow).
+
+## Remote-launcher execution
+
+You are **not** running the experiment — you are setting up a pod that will run it autonomously, then handing off. The user wants this because their laptop may go offline.
+
+### R1: Read spec, recon data, push branch (concurrent)
+
+1. **Read the spec** at the confirmed spec path.
+2. **Launch in parallel** (one `run_in_background` Bash call for the push, one Agent call for the recon):
+   - **Data recon subagent** (Agent, subagent_type="general-purpose", model="opus"): "Read the experiment spec at <spec_path>. Find every data path it references (activations .npz, embeddings, topics .json, results directories, configs, probe weights, concept vectors). For each: check whether it exists locally (follow symlinks), whether it's gitignored, and report size (`du -sh`). Return a structured list: `path | exists? | gitignored? | size`. The experiment will run on a GPU pod with only what git provides plus what we explicitly sync — anything gitignored that the spec reads must appear in the sync list."
+   - **Push the branch**: commit any relevant unstaged changes (ask before broad commits), then `git push -u origin HEAD`. The pod clones from the remote, so unpushed work is invisible.
+3. **Wait for both**, then **decide `data_dirs`**: gitignored paths the spec reads (not writes) are the default sync set. Do not ask the user; err toward including ambiguous directories — a too-small sync is a silent failure on the pod. Capture the branch name.
+
+### R2: Pod setup
+
+1. **Reuse or create**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, invoke `/zombuul:launch-runpod <pod_name> --remote` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
+2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
+
+### R3: Launch the on-pod agent
+
+1. **Copy the launch script to the pod**: `scp ${CLAUDE_PLUGIN_ROOT}/scripts/launch_on_pod.sh runpod-<name>:/tmp/launch_on_pod.sh`
+2. **Launch under nohup + disown** with branch and spec path as positional args:
+   `ssh runpod-<name> 'chmod +x /tmp/launch_on_pod.sh && nohup /tmp/launch_on_pod.sh <branch> <spec_path> </dev/null > /workspace/launch.log 2>&1 & disown'`
+3. **Verify the claude process is running**: `ssh runpod-<name> 'ps aux | grep claude | grep -v grep'`.
+
+The script sources `~/.bash_profile` (for tokens), registers a `trap pause_pod EXIT` so the pod auto-pauses on any agent exit including crashes, then runs `claude -p '/zombuul:run-experiment <spec>'` with `IS_SANDBOX=1`. See `scripts/launch_on_pod.sh` for the full script.
+
+### R4: Hand off to the user
+
+Report:
+- Pod name, SSH command, branch name.
+- Monitoring commands:
+  - `git fetch origin <branch> && git log origin/<branch> --oneline -- experiments/<name>/` — see running-log commits as they land.
+  - `ssh runpod-<name> 'tail -f /workspace/agent.log'` — live stdout of the on-pod agent.
+- Expected behavior: pod auto-pauses when the agent exits (trap handles crashes too). Results land on the `<branch>` branch as commits. `experiments/<name>/running_log.md` is the legible progress log.
+
+Then stop. Do NOT enter any monitoring loop — the user's explicit motivation for remote mode is that they may be offline.
+
+## On-pod execution
+
+You are inside a GPU pod. `IS_SANDBOX=1` is set. Everything you need to run the experiment is already here: the repo is cloned at `/workspace/repo`, `.env` is synced, the spec is at `$ARGUMENTS`, and `data_dirs` specified at launch time have been synced under `/workspace/repo/`. Do NOT:
+
+- Create pods or call any `runpod_ctl.py` command.
+- Invoke `/zombuul:launch-runpod`, `/zombuul:provision-pod`, or `/zombuul:run-experiment` recursively (no `remote` token handling — you're the terminal point).
+- Use `EnterWorktree`. Work directly in `/workspace/repo` on the current branch.
+
+### OP1: Setup
+
+1. **Confirm context**: `pwd` should be `/workspace/repo`. `git branch --show-current` should show the experiment branch. If not, `git checkout <branch>`.
+2. **Read the spec** at the path passed in `$ARGUMENTS`.
+3. **Verify data presence**: for every gitignored data path the spec references, check it exists on the pod (`ls -la <path>`). If anything critical is missing, append a MISSING DATA block to `experiments/<name>/running_log.md`, commit+push, and stop — don't try to work around missing data by provisioning more infrastructure.
+4. **Create scripts workspace, report skeleton, and running log** (see [Directory structure](#directory-structure) below).
+
+### OP2: Run + log + push
+
+Execute the experiment workflow ([Workflow](#workflow) steps 3–5) with two differences:
+
+- **Every step appends to `running_log.md`** (you'd do this in any mode). Additionally, after each step:
+  `git add experiments/<name>/ && git diff --cached --quiet || (git commit -m "log: <brief>" && git push origin HEAD)`
+  The `--quiet` check skips empty commits when no files actually changed (e.g., a no-op step). `git add experiments/<name>/` picks up anything under the experiment dir, including newly-created subdirs. This is what lets the user's local Claude check progress from a fresh fetch. Squash noise later — clarity now beats tidy history.
+- **GPU-bound and CPU-bound commands both run locally on the pod.** No SSH. No rsync-back. Everything lives here.
+
+Keep commits small and labeled (`log: <step>`, `result: <step>`, `fix: <what>`). Do not force-push.
+
+### OP3: Finish
+
+1. Run `/zombuul:review-experiment-report` via an Agent subagent on the report path.
+2. Final commit + push of report, plots, scripts, data artifacts (respect `.gitignore`; large files that aren't already gitignored should be added to `.gitignore` rather than committed).
+3. Exit cleanly. The launch script will pause the pod automatically.
 
 ## Execution model
 
-**Remote vs local execution awareness:**
+**Local mode — remote vs local command awareness:**
 - GPU-bound commands (model loading, extraction, training, steering) → SSH to pod: `ssh runpod-<name> 'cd /workspace/repo && python -m ...'`
 - CPU-bound commands (analysis, plotting, fitting) → run locally
 - Results from pod need to be synced back: `rsync -az runpod-<name>:/workspace/repo/<results_path> <local_path>`
 
-**Non-blocking execution:**
+**On-pod mode:** everything runs locally on the pod. No SSH, no rsync.
+
+**Non-blocking execution (local mode):**
 - Long-running scripts (training, extraction, generation) should use `run_in_background` on the Bash tool
 - Remote execution via SSH also uses `run_in_background`
 - While waiting: prepare next steps, write analysis code, set up plotting scripts
@@ -130,7 +215,7 @@ Image references in the report use relative paths: `![description](assets/plot_f
 
 ### Running log
 
-Create `running_log.md` in the experiment directory. Append to this after every completed step — script outputs, intermediate numbers, observations, errors. This is for recovery if the session dies — do not re-read it during the session. Use your in-context memory for what you've done so far.
+Create `running_log.md` in the experiment directory. Append to this after every completed step — script outputs, intermediate numbers, observations, errors. In on-pod mode, this is also the user's only real-time progress window, so append aggressively (every command, every result) and commit+push after each append. This is for recovery if the session dies — do not re-read it during the session. Use your in-context memory for what you've done so far.
 
 ## Scripts workspace
 
@@ -150,10 +235,10 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 
 ## Workflow
 
-1. **Setup** (Phase 1 + Phase 2 above).
+1. **Setup** (Phase 1 + Phase 2 for local mode; R1–R4 for remote-launcher; OP1 for on-pod).
 2. **Read the spec.** Set up infrastructure.
 3. Create scripts workspace, report skeleton, and running log.
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
 5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
-6. **Sync results.** If a pod was used: sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
-7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing.
+6. **Sync results** (local mode only, if a pod was used): sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
+7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
