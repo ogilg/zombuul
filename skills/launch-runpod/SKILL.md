@@ -1,12 +1,21 @@
 ---
 name: zombuul:launch-runpod
 description: >
-  Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name.
+  Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name, optionally
+  followed by `--remote` to install Claude Code + zombuul plugin on the pod
+  (needed when the pod itself will run an agent, not just receive SSH commands).
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion, Read, Edit, Skill
 ---
 
 Spin up a RunPod GPU pod interactively.
+
+## Arguments
+
+`$ARGUMENTS` is a whitespace-separated list: `[pod_name] [--remote]`.
+
+- `pod_name` (optional): short kebab-case pod name. Default `research`.
+- `--remote` (optional flag): if present, pass `--install-claude` to the create command. This installs Claude Code and the zombuul plugin on the pod so an agent can run *inside* the pod (used by `/zombuul:run-experiment <spec> --remote`). Omit for the default case where your local Claude drives the pod over SSH.
 
 ## Process
 
@@ -28,7 +37,8 @@ Spin up a RunPod GPU pod interactively.
    - GPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --gpu-count <n>`
    - CPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --cpu`
    - Add `--image "<image>"` only if the user specified a non-default image.
-   Use $ARGUMENTS as the pod name if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, extracts Claude Code credentials from Keychain, then SCPs and runs `pod_setup.sh`.
+   - Add `--install-claude` if the caller passed `--remote` in `$ARGUMENTS`.
+   Use the pod name from $ARGUMENTS if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, and SCPs `pod_setup.sh`. Claude Code credentials are only copied and installed when `--install-claude` is set.
 
 6. **Ask about provisioning**: After getting the pod ID, IP, and port from the create output, ask the user via AskUserQuestion:
    - **"Provision pod"** (Recommended) — waits for setup to complete, configures SSH alias, syncs .env
