@@ -79,6 +79,8 @@ Continue to [Execution model](#execution-model) and [Workflow](#workflow).
 
 You are **not** running the experiment — you are setting up a pod that will run it autonomously, then handing off. The user wants this because their laptop may go offline.
 
+**Do not ask for confirmation at any step in R1–R4.** Invoking `--remote` is the user pre-authorizing the full pod-launch + handoff flow: pushing the branch, launching/reusing a pod, provisioning, copying the launch script, and kicking off the on-pod agent. Make reasonable choices (pod name, data_dirs) and proceed. The only acceptable stop is if something is actually broken (e.g. push fails, pod setup errors). Run tool calls back-to-back; no "shall I proceed?" checkpoints.
+
 ### R1: Read spec, recon data, push branch (concurrent)
 
 1. **Read the spec** at the confirmed spec path.
@@ -93,6 +95,8 @@ You are **not** running the experiment — you are setting up a pod that will ru
 2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
 
 ### R3: Launch the on-pod agent
+
+Execute all three steps without pausing to confirm — this is the whole point of remote mode.
 
 1. **Copy the launch script to the pod**: `scp ${CLAUDE_PLUGIN_ROOT}/scripts/launch_on_pod.sh runpod-<name>:/tmp/launch_on_pod.sh`
 2. **Launch under nohup + disown** with branch and spec path as positional args:
