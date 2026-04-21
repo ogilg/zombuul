@@ -290,9 +290,15 @@ def pause_pod(pod_id: str):
     print("Pod paused. Disk is preserved; GPU billing stopped.")
 
 
-def resume_pod(pod_id: str):
-    print(f"Resuming pod {pod_id}...")
-    runpod.resume_pod(pod_id, gpu_count=1)
+def resume_pod(pod_id: str, gpu_count: int = 1):
+    print(f"Resuming pod {pod_id} with gpu_count={gpu_count}...")
+    if gpu_count == 0:
+        print("  NOTE: RunPod's resume API with gpu_count=0 is known to return")
+        print("        desiredStatus=RUNNING but boot the pod with vcpuCount=0,")
+        print("        memoryInGb=0, and exit immediately. This is a RunPod-side")
+        print("        limitation for GPU-reserved pods; CPU-only pods must be")
+        print("        created fresh via `create --cpu`.")
+    runpod.resume_pod(pod_id, gpu_count=gpu_count)
     print("Pod resume requested. Waiting for SSH...")
     ip, port = wait_for_ssh(pod_id)
     if ip:
@@ -389,6 +395,7 @@ def main():
 
     resume = sub.add_parser("resume", help="Resume a paused pod")
     resume.add_argument("pod_id")
+    resume.add_argument("--gpu-count", type=int, default=1, help="Number of GPUs to resume with (default: 1). Passing 0 is accepted by the RunPod API but does not actually boot GPU-reserved pods — see `resume_pod` docstring.")
 
     status = sub.add_parser("status", help="Check setup progress on a pod")
     status.add_argument("pod_id")
@@ -425,7 +432,7 @@ def main():
     elif args.command == "pause":
         pause_pod(args.pod_id)
     elif args.command == "resume":
-        resume_pod(args.pod_id)
+        resume_pod(args.pod_id, gpu_count=args.gpu_count)
     elif args.command == "status":
         setup_status(args.pod_id)
     elif args.command == "wait-setup":
