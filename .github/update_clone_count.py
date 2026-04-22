@@ -37,8 +37,8 @@ state_path.write_text(json.dumps(state_out, indent=2) + "\n")
 
 badge_out = {
     "schemaVersion": 1,
-    "label": "clones",
-    "message": str(total),
+    "label": "unique cloners",
+    "message": str(uniques),
     "color": "blue",
 }
 badge_path.write_text(json.dumps(badge_out, indent=2) + "\n")
