@@ -1,9 +1,5 @@
 # Zombuul
 
-![GitHub stars](https://img.shields.io/github/stars/ogilg/zombuul?style=flat&logo=github)
-![GitHub forks](https://img.shields.io/github/forks/ogilg/zombuul?style=flat&logo=github)
-![License: MIT](https://img.shields.io/github/license/ogilg/zombuul)
-
 Run AI safety experiments end-to-end, from spec to report. Claude Code handles the GPU pod, orchestration, and writeup. Locally, or fully remote.
 
 ## Install
