@@ -1,6 +1,10 @@
 # Zombuul
 
-Run experiments on GPU pods from local Claude Code.
+![GitHub stars](https://img.shields.io/github/stars/ogilg/zombuul?style=flat&logo=github)
+![GitHub forks](https://img.shields.io/github/forks/ogilg/zombuul?style=flat&logo=github)
+![License: MIT](https://img.shields.io/github/license/ogilg/zombuul)
+
+Run AI safety experiments end-to-end, from spec to report. Claude Code handles the GPU pod, orchestration, and writeup. Locally, or fully remote.
 
 ## Install
 
@@ -8,54 +12,25 @@ Run experiments on GPU pods from local Claude Code.
 /plugin marketplace add ogilg/zombuul
 /plugin install zombuul@ogilg-marketplace
 ```
-And then ask claude to set it up.
 
+Then run `/zombuul:setup`.
 
 ## Usage
 
-1. Write an experiment spec — spend time making it good
-2. Run it:
+1. **Write a spec.** A detailed markdown file covering the question, the data, the method, and the expected outputs. Spend time on it; everything downstream depends on it.
 
-```
-/zombuul:run-experiment experiments/my_question/my_question_spec.md
-```
+2. *(optional)* **Review the spec:** `/zombuul:review-spec path/to/spec.md`. Flags gaps before you burn GPU hours.
 
-Your local Claude Code reads the spec, decides if a GPU pod is needed, sets one up if so, then runs the experiment — baseline, iterations, plots, report. GPU-bound work (extraction, training, steering) runs on the pod via SSH; analysis and plotting run locally. Results are synced back, the pod is paused, and the branch is pushed.
+3. **Run it:** `/zombuul:run-experiment path/to/spec.md`. Pod, execution, plots, report all handled. Add `--remote` to run the agent *inside* the pod so you can close your laptop; it commits progress to a branch and auto-pauses the pod on exit.
 
-### Remote mode (survive local disconnects)
+4. *(optional)* **Babysit long runs:** `/zombuul:babysit <pod_name> <description>`. Polls progress every 5 min, reports back, handles crashes and wrap-up.
 
-Pass `--remote` to run the agent *inside* the pod instead of orchestrating from your laptop:
+## What it handles for you
 
-```
-/zombuul:run-experiment experiments/my_question/my_question_spec.md --remote
-```
-
-Your local Claude pushes the branch, spins up a pod with Claude Code + the zombuul plugin installed, syncs the spec and any gitignored data the spec reads, kicks off `claude -p '/zombuul:run-experiment <spec>'` inside the pod under `nohup ... & disown`, and hands off. The on-pod agent commits and pushes `experiments/<name>/running_log.md` after each step so you can `git fetch` to see progress. When the agent exits, the pod auto-pauses.
-
-Claude Code is **only** installed on the pod in remote mode. Default (local) mode uses the pod as a dumb SSH target.
-
-## Commands
-
-| Command | What it does |
-|---------|-------------|
-| `/zombuul:run-experiment` | Run an experiment from a spec. Handles pod creation, data sync, remote/local execution, and reporting. Pass `--remote` to run the agent inside the pod. |
-| `/zombuul:review-spec` | Review an experiment spec for completeness before running it. |
-| `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. Pass `--remote` as a second arg to also install Claude Code + the zombuul plugin on the pod. |
-| `/zombuul:provision-pod` | Provision a pod: configure SSH, sync .env and data. Called by `run-experiment` automatically. |
-| `/zombuul:babysit` | Monitor a long-running job on a pod. Checks every 5 min, restarts on crash, pauses when done. |
-| `/zombuul:pause-runpod` | Pause a pod (stop GPU billing, keep disk). |
-| `/zombuul:resume-runpod` | Resume a paused pod. |
-| `/zombuul:review-experiment-report` | Review and rewrite a research report for clarity. Called by `run-experiment` at the end. |
-| `/zombuul:setup` | Interactive onboarding — detects what's already configured, only asks for what's missing. |
-
-## Setup details
-
-`/zombuul:setup` handles all of this, but for reference:
-
-- `pip install runpod` or `uv pip install runpod`
-- SSH key at `~/.ssh/id_ed25519`
-- A `.env` in your repo root with `RUNPOD_API_KEY`, `GH_TOKEN`, `GIT_USER_NAME`, `GIT_USER_EMAIL`
-- Your repo needs a `pyproject.toml`, `requirements.txt`, or `setup.py` (the pod auto-detects and installs deps)
+- **Pod lifecycle.** Spin up, pause, resume RunPod GPUs on demand.
+- **Repo + env.** Clone your branch, auto-install deps, sync `.env` and gitignored data.
+- **Orchestration.** Runs baseline + iterations, commits a running log, writes the final report with plots.
+- **The prompts themselves.** `run-experiment`, `review-spec`, `review-experiment-report`, and `babysit` were refined over 3 months of MATS experiments. The opinionated loop (how to structure a spec, when to iterate, what a report should look like) is where most of the value lives.
 
 ## How it works
 
@@ -75,3 +50,22 @@ You (local Claude Code)              Pod (RunPod GPU)
  │  write report, push branch         │
  │  pause pod                         │
 ```
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/zombuul:run-experiment` | Run an experiment from a spec. Pass `--remote` to run inside the pod. |
+| `/zombuul:review-spec` | Review a spec for completeness before running. |
+| `/zombuul:babysit` | Monitor a long-running job. Progress pings every 5 min, restarts on crash. |
+| `/zombuul:review-experiment-report` | Rewrite a report for clarity. Called by `run-experiment` at the end. |
+| `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. `--remote` also installs Claude Code on it. |
+| `/zombuul:provision-pod` | Configure SSH, sync `.env` and data. Called automatically by `run-experiment`. |
+| `/zombuul:pause-runpod` / `/zombuul:resume-runpod` | Pause or resume a pod. |
+| `/zombuul:setup` | Interactive onboarding. |
+
+## Feedback
+
+Bugs, questions, feature ideas, or just want to share what you're running: all welcome. Open an [issue](https://github.com/ogilg/zombuul/issues) or start a [discussion](https://github.com/ogilg/zombuul/discussions). I read everything.
+
+Contact: `oscar.gilg18 [at] gmail [dot] com`
