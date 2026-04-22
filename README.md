@@ -42,6 +42,7 @@ Claude Code is **only** installed on the pod in remote mode. Default (local) mod
 | `/zombuul:review-spec` | Review an experiment spec for completeness before running it. |
 | `/zombuul:launch-runpod` | Spin up a pod without launching an experiment. Pass `--remote` as a second arg to also install Claude Code + the zombuul plugin on the pod. |
 | `/zombuul:provision-pod` | Provision a pod: configure SSH, sync .env and data. Called by `run-experiment` automatically. |
+| `/zombuul:babysit` | Monitor a long-running job on a pod. Checks every 5 min, restarts on crash, pauses when done. |
 | `/zombuul:pause-runpod` | Pause a pod (stop GPU billing, keep disk). |
 | `/zombuul:resume-runpod` | Resume a paused pod. |
 | `/zombuul:review-experiment-report` | Review and rewrite a research report for clarity. Called by `run-experiment` at the end. |
