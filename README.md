@@ -1,5 +1,7 @@
 # Zombuul
 
+![Clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ogilg/zombuul/main/.github/clone-count.json)
+
 Run AI safety experiments end-to-end, from spec to report. Claude Code handles the GPU pod, orchestration, and writeup. Locally, or fully remote.
 
 ## Install
@@ -64,4 +66,4 @@ You (local Claude Code)              Pod (RunPod GPU)
 
 Bugs, questions, feature ideas, or just want to share what you're running: all welcome. Open an [issue](https://github.com/ogilg/zombuul/issues) or start a [discussion](https://github.com/ogilg/zombuul/discussions). I read everything.
 
-Contact: `oscar.gilg18 [at] gmail [dot] com`
+Contact: `oscar.gilg18 [at] gmail [dot] com` / [@gilg_oscar](https://x.com/gilg_oscar) on X
