@@ -158,10 +158,16 @@ Keep commits small and labeled (`log: <step>`, `result: <step>`, `fix: <what>`).
 **On-pod mode:** everything runs locally on the pod. No SSH, no rsync.
 
 **Non-blocking execution (local mode):**
-- Long-running scripts (training, extraction, generation) should use `run_in_background` on the Bash tool
-- Remote execution via SSH also uses `run_in_background`
-- While waiting: prepare next steps, write analysis code, set up plotting scripts
-- You get notified when background tasks complete — process results then
+- Short commands (<10 min): use `run_in_background` on the Bash tool. You get notified when they complete.
+- While waiting: prepare next steps, write analysis code, set up plotting scripts.
+
+**Babysitting long GPU jobs (local mode only):**
+For GPU jobs expected to take more than ~10 minutes, use nohup + babysit instead of `run_in_background`. This handles crash recovery automatically.
+
+1. Launch the job so it survives SSH disconnect:
+   `ssh runpod-<name> 'cd /workspace/repo && nohup python -u -m <module> > <log_path> 2>&1 & disown'`
+2. Invoke `/zombuul:babysit <pod_name> <description>` — this sets up a cron job that checks every 5 min, restarts on crash, and pauses the pod when done.
+3. You are free to work on other tasks while the babysitter monitors. It will report progress and any issues to the conversation.
 
 **Audit on launch:**
 When you launch a long-running job (extraction, training, generation, steering), immediately spawn an audit subagent (Agent tool, subagent_type="general-purpose", model="opus") in the background. The subagent checks the setup independently — it should not trust your assumptions. Pass it the spec and the paths to all data/config files being used. The subagent should:
