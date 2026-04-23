@@ -1,6 +1,6 @@
 {
   "name": "zombuul",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "description": "Run experiments on GPU pods from local Claude Code",
   "author": {
     "name": "Oscar Gilg",
