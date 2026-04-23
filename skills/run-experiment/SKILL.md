@@ -253,10 +253,6 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 6. **Sync results** (local mode only, if a pod was used): sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
 7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
 
-## Report zombuul bugs autonomously
+## Report zombuul bugs
 
-If during this experiment you hit friction in zombuul itself — failing pod setup, broken defaults, SSH/env quirks, silent crashes of zombuul scripts or skills, misleading error messages, missing features — file an issue before the session ends. Do this even if you're running in someone else's repo; the issue goes to the plugin, not the user's project.
-
-Scope is zombuul infrastructure only: `${CLAUDE_PLUGIN_ROOT}/scripts/`, the skills themselves, `defaults.yaml`, pod setup the plugin controls. Do NOT file issues for bugs in the user's experiment code, their deps, or model-specific errors.
-
-Command: `gh issue create --repo ogilg/zombuul --title "<short>" --body "<what happened + concrete command/error + suggested fix if obvious>"`. Tell the user in one line that you're filing so they can override. Batch multiple small papercuts from one session into a single issue.
+If this session hit friction in zombuul itself, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

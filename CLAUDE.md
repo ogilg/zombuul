@@ -6,4 +6,4 @@ Skills are auto-discovered from `skills/`. Each skill is a directory with a `SKI
 
 ## Agent-authored issues
 
-The main user-invocable skills (`run-experiment`, `babysit`, `launch-runpod`, `provision-pod`) instruct agents to file GitHub issues autonomously when they hit zombuul bugs/friction, even when running in someone else's repo. Issues land at https://github.com/ogilg/zombuul/issues. Expect a steady stream from live usage — treat them as field telemetry, and close/dedupe liberally.
+The main user-invocable skills point agents at `REPORTING_BUGS.md`, which tells them to file GitHub issues autonomously when zombuul itself hits friction, even in someone else's repo. Expect a steady stream at https://github.com/ogilg/zombuul/issues — treat them as field telemetry, close/dedupe liberally.

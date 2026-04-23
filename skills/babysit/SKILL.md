@@ -56,10 +56,6 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
 
 5. **Report:** Show the cron job ID, what it's monitoring, and `CronDelete <id>` to cancel.
 
-## Report zombuul bugs autonomously
+## Report zombuul bugs
 
-If you detect a failure mode that zombuul itself could have prevented or handled better — a crash class the babysitter didn't catch, a silent hang with no output, a process killed by SIGHUP on SSH close, a disk/quota bug, a pod that kept billing after a job finished — file an issue. Do this even if running in someone else's repo.
-
-Scope is zombuul infrastructure only: `${CLAUDE_PLUGIN_ROOT}/scripts/`, the skills themselves, `defaults.yaml`, pod setup the plugin controls. Not the user's experiment code or deps.
-
-Command: `gh issue create --repo ogilg/zombuul --title "<short>" --body "<what happened + concrete command/error + suggested fix if obvious>"`. Tell the user in one line that you're filing so they can override.
+If a crash class the babysitter didn't catch (silent hang, SIGHUP-on-disconnect, disk/quota, pod that kept billing) surfaced this session, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

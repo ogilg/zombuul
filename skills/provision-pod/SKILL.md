@@ -55,10 +55,6 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
    - What was synced (list .env, spec, data dirs as applicable)
    - Setup status (success or failure with instructions to check `/var/log/pod_setup.log`)
 
-## Report zombuul bugs autonomously
+## Report zombuul bugs
 
-If provisioning hits friction zombuul itself could have prevented — `wait-setup` reporting success when setup actually failed, `.env` sync that breaks on specific filename characters, rsync permission issues from the plugin defaults, missing SSH alias handling, duplicate alias entries piling up in `~/.ssh/config` — file an issue. Do this even in someone else's repo.
-
-Scope: zombuul infrastructure only (`${CLAUDE_PLUGIN_ROOT}/scripts/`, skills, `defaults.yaml`, pod setup the plugin controls). Not the user's code or deps.
-
-Command: `gh issue create --repo ogilg/zombuul --title "<short>" --body "<what happened + concrete command/error + suggested fix if obvious>"`. Tell the user in one line that you're filing so they can override.
+If provisioning hit friction zombuul could have prevented (wait-setup false success, `.env` sync edge cases, SSH alias dupes, rsync perms), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
