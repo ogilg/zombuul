@@ -252,3 +252,7 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
 6. **Sync results** (local mode only, if a pod was used): sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
 7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
+
+## Report zombuul bugs
+
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

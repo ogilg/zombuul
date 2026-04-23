@@ -51,3 +51,7 @@ Spin up a RunPod GPU pod interactively.
    - The setup script is running in the background on the pod (clones repo, installs deps). Check `/var/log/pod_setup.log` on the pod for progress.
    - If setup fails, don't debug individual steps — just re-run `pod_setup.sh`: `ssh runpod-<name> 'nohup bash /pod_setup.sh <repo_url> <branch> </dev/null > /var/log/pod_setup.log 2>&1 & disown'`. It's idempotent (skips clone if repo exists).
    - They can run `/zombuul:pause-runpod` to pause the pod when done (GPU billing stops, disk preserved).
+
+## Report zombuul bugs
+
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

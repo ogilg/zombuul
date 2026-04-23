@@ -55,3 +55,7 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
 4. **Run the first check immediately** — execute the same SSH process check inline so the user gets instant feedback. Don't wait for the first cron tick.
 
 5. **Report:** Show the cron job ID, what it's monitoring, and `CronDelete <id>` to cancel.
+
+## Report zombuul bugs
+
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

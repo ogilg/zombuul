@@ -54,3 +54,7 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
    - SSH command: `ssh runpod-<pod_name>`
    - What was synced (list .env, spec, data dirs as applicable)
    - Setup status (success or failure with instructions to check `/var/log/pod_setup.log`)
+
+## Report zombuul bugs
+
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
