@@ -99,9 +99,9 @@ You are **not** running the experiment — you are setting up a pod that will ru
 Execute all three steps without pausing to confirm — this is the whole point of remote mode.
 
 1. **Copy the launch script to the pod**: `scp ${CLAUDE_PLUGIN_ROOT}/scripts/launch_on_pod.sh runpod-<name>:/tmp/launch_on_pod.sh`
-2. **Launch under nohup + disown** with branch and spec path as positional args:
-   `ssh runpod-<name> 'chmod +x /tmp/launch_on_pod.sh && nohup /tmp/launch_on_pod.sh <branch> <spec_path> </dev/null > /workspace/launch.log 2>&1 & disown'`
-3. **Verify the claude process is running**: `ssh runpod-<name> 'ps aux | grep claude | grep -v grep'`.
+2. **Launch inside a named tmux session** (survives SSH drops cleanly; `nohup ... & disown` gets killed by SIGHUP in some drop scenarios):
+   `ssh runpod-<name> "chmod +x /tmp/launch_on_pod.sh && tmux new-session -d -s zombuul '/tmp/launch_on_pod.sh <branch> <spec_path> > /workspace/launch.log 2>&1'"`
+3. **Verify the session is running**: `ssh runpod-<name> 'tmux has-session -t zombuul && echo alive'`. Re-attach live with `ssh runpod-<name> -t 'tmux attach -t zombuul'`.
 
 The script sources `~/.bash_profile` (for tokens), registers a `trap pause_pod EXIT` so the pod auto-pauses on any agent exit including crashes, then runs `claude -p '/zombuul:run-experiment <spec>'` with `IS_SANDBOX=1`. See `scripts/launch_on_pod.sh` for the full script.
 
@@ -162,11 +162,11 @@ Keep commits small and labeled (`log: <step>`, `result: <step>`, `fix: <what>`).
 - While waiting: prepare next steps, write analysis code, set up plotting scripts.
 
 **Babysitting long GPU jobs (local mode only):**
-For GPU jobs expected to take more than ~10 minutes, use nohup + babysit instead of `run_in_background`. This handles crash recovery automatically.
+For GPU jobs expected to take more than ~10 minutes, launch inside tmux + invoke babysit instead of using `run_in_background`. tmux sessions survive SSH drops; babysit handles crash recovery.
 
-1. Launch the job so it survives SSH disconnect:
-   `ssh runpod-<name> 'cd /workspace/repo && nohup python -u -m <module> > <log_path> 2>&1 & disown'`
-2. Invoke `/zombuul:babysit <pod_name> <description>` — this sets up a cron job that checks every 5 min, restarts on crash, and pauses the pod when done.
+1. Launch the job in a named tmux session (pick `<session>` to match the job, e.g. `extraction`):
+   `ssh runpod-<name> "tmux new-session -d -s <session> 'cd /workspace/repo && python -u -m <module> > <log_path> 2>&1'"`
+2. Invoke `/zombuul:babysit <pod_name> <description>` — this sets up a cron job that checks every 5 min, restarts on crash, and pauses the pod when done. Include the tmux session name in the description so babysit can check liveness via `tmux has-session`.
 3. You are free to work on other tasks while the babysitter monitors. It will report progress and any issues to the conversation.
 
 **Audit on launch:**

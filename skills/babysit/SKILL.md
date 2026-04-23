@@ -18,11 +18,11 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
 
 1. **Parse arguments.** Split into pod_name and description. If either is empty, show usage and stop.
 
-2. **Snapshot the running command.** SSH to the pod and capture what's running:
+2. **Snapshot the running command and its tmux session.** SSH to the pod and capture both:
    ```
-   ssh runpod-<pod_name> 'ps aux | grep python | grep -v grep'
+   ssh runpod-<pod_name> 'tmux list-sessions 2>/dev/null; ps aux | grep python | grep -v grep'
    ```
-   Save this output — it goes into the cron prompt so the babysitter agent knows what to restart.
+   Save this output — it goes into the cron prompt so the babysitter agent knows the session name and exact command to restart. If the job was launched without tmux (legacy), fall back to the `ps` output alone.
 
 3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template:
 
@@ -34,7 +34,7 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
 
    ## Check
 
-   1. `ssh runpod-{pod_name} 'ps aux | grep python | grep -v grep'`
+   1. Liveness: `ssh runpod-{pod_name} 'tmux has-session -t <session> 2>/dev/null && echo alive || echo dead'`. If the job was launched without tmux, fall back to `ps aux | grep python | grep -v grep`.
 
    2. **If alive:** Check progress from the description (count output files, tail logs, etc.). Report one line: "{N}/{total} done" or similar.
 
@@ -42,7 +42,7 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
       a. Check logs: `ssh runpod-{pod_name} 'tail -30 /workspace/repo/<likely_log_path>'`
       b. Diagnose (OOM? I/O error? completed successfully?).
       c. If completed successfully → go to step 4.
-      d. If crashed → restart using the last known command above (adjust working dir, log path as needed). Report what happened.
+      d. If crashed → restart using the last known command above inside a new tmux session (`tmux new-session -d -s <session> '<cmd>'`). Report what happened.
 
    4. **If done** (all expected outputs exist per the description):
       a. Report completion.
