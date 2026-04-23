@@ -290,6 +290,16 @@ def pause_pod(pod_id: str):
     print("Pod paused. Disk is preserved; GPU billing stopped.")
 
 
+def terminate_pod(pod_id: str, yes: bool = False):
+    if not yes:
+        print(f"ERROR: `terminate` destroys pod {pod_id} and all its disk contents.")
+        print("Pass --yes to confirm.")
+        sys.exit(2)
+    print(f"Terminating pod {pod_id}...")
+    runpod.terminate_pod(pod_id)
+    print("Pod terminated. Disk destroyed; all billing stopped.")
+
+
 def resume_pod(pod_id: str, gpu_count: int = 1):
     print(f"Resuming pod {pod_id} with gpu_count={gpu_count}...")
     if gpu_count == 0:
@@ -393,6 +403,10 @@ def main():
     pause = sub.add_parser("pause", help="Pause a pod (stop GPU billing, keep disk)")
     pause.add_argument("pod_id")
 
+    terminate = sub.add_parser("terminate", help="Destroy a pod (stops billing, deletes disk). Requires --yes.")
+    terminate.add_argument("pod_id")
+    terminate.add_argument("--yes", action="store_true", help="Confirm destruction (disk is deleted).")
+
     resume = sub.add_parser("resume", help="Resume a paused pod")
     resume.add_argument("pod_id")
     resume.add_argument("--gpu-count", type=int, default=1, help="Number of GPUs to resume with (default: 1). Passing 0 is accepted by the RunPod API but does not actually boot GPU-reserved pods — see `resume_pod` docstring.")
@@ -431,6 +445,8 @@ def main():
         )
     elif args.command == "pause":
         pause_pod(args.pod_id)
+    elif args.command == "terminate":
+        terminate_pod(args.pod_id, yes=args.yes)
     elif args.command == "resume":
         resume_pod(args.pod_id, gpu_count=args.gpu_count)
     elif args.command == "status":
