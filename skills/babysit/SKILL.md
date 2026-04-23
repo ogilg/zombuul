@@ -58,4 +58,4 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
 
 ## Report zombuul bugs
 
-If a crash class the babysitter didn't catch (silent hang, SIGHUP-on-disconnect, disk/quota, pod that kept billing) surfaced this session, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

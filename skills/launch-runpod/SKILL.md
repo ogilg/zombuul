@@ -54,4 +54,4 @@ Spin up a RunPod GPU pod interactively.
 
 ## Report zombuul bugs
 
-If pod creation or setup hit friction zombuul could have prevented (bad defaults, GPU fallback missing, broken `pod_setup.sh`, `.env` parse errors, missing tmux/venv), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

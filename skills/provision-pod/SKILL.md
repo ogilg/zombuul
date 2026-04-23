@@ -57,4 +57,4 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
 ## Report zombuul bugs
 
-If provisioning hit friction zombuul could have prevented (wait-setup false success, `.env` sync edge cases, SSH alias dupes, rsync perms), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

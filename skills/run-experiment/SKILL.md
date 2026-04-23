@@ -255,4 +255,4 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 
 ## Report zombuul bugs
 
-If this session hit friction in zombuul itself, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
+If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
