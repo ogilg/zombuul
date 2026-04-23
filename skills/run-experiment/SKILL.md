@@ -70,7 +70,7 @@ When the subagent returns, show the user the spec path and summary. Ask: "Want m
 2. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
 3. **Set up infrastructure** if GPU needed:
    - If the infrastructure agent found a running pod, use it.
-   - Otherwise: invoke `/zombuul:launch-runpod` (local mode — do NOT pass `remote`, the pod is just an SSH target). After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
+   - Otherwise: **size the pod based on the spec before invoking launch-runpod.** See [Sizing a pod from the spec](#sizing-a-pod-from-the-spec) below. Then invoke `/zombuul:launch-runpod <pod_name> --disk-gb <N> --volume-gb <N>` (local mode — do NOT pass `--remote`, the pod is just an SSH target). After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
    - Do NOT ask the user for GPU choice, data dirs, etc. Make reasonable choices. Only ask if truly blocked.
 
 Continue to [Execution model](#execution-model) and [Workflow](#workflow).
@@ -91,7 +91,7 @@ You are **not** running the experiment — you are setting up a pod that will ru
 
 ### R2: Pod setup
 
-1. **Reuse or create**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, invoke `/zombuul:launch-runpod <pod_name> --remote` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
+1. **Reuse or create**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, **size the pod from the spec** (see [Sizing a pod from the spec](#sizing-a-pod-from-the-spec)) and invoke `/zombuul:launch-runpod <pod_name> --remote --disk-gb <N> --volume-gb <N>` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
 2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
 
 ### R3: Launch the on-pod agent
@@ -252,6 +252,15 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
 6. **Sync results** (local mode only, if a pod was used): sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
 7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
+
+## Sizing a pod from the spec
+
+Defaults (100 GB disk / 50 GB volume) only fit small models (≤13B). Derive `--disk-gb` and `--volume-gb` from the spec before launching — undersized pods fail mid-run and cost a full restart.
+
+- **`--disk-gb`** (container NVMe; HF cache + venv + local outputs): `model_params_B × 2.5 + 30 + local_outputs_gb`. Anchors: 27B → 100, 70B → 210, 122B → 400. When unsure, round up.
+- **`--volume-gb`** (MooseFS; durable outputs that must survive pod deletion): default 50 is usually fine. Note: MooseFS has a hidden per-user quota; `df` reports the pool, not the limit.
+
+Note the chosen sizes in the running log.
 
 ## Report zombuul bugs
 

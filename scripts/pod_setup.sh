@@ -143,6 +143,11 @@ fi
 export UV_CACHE_DIR=/opt/uv_cache
 export HF_HOME=/opt/hf_cache
 mkdir -p /opt/uv_cache /opt/hf_cache
+# Belt-and-braces: redirect the default HF cache path to container disk too,
+# so tools that ignore HF_HOME still avoid the NFS/MooseFS volume.
+mkdir -p /root/.cache
+rm -rf /root/.cache/huggingface
+ln -sfn /opt/hf_cache /root/.cache/huggingface
 
 # --- Python environment ---
 

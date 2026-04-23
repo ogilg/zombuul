@@ -12,10 +12,12 @@ Spin up a RunPod GPU pod interactively.
 
 ## Arguments
 
-`$ARGUMENTS` is a whitespace-separated list: `[pod_name] [--remote]`.
+`$ARGUMENTS` is a whitespace-separated list: `[pod_name] [--remote] [--disk-gb N] [--volume-gb N]`.
 
 - `pod_name` (optional): short kebab-case pod name. Default `research`.
 - `--remote` (optional flag): if present, pass `--install-claude` to the create command. This installs Claude Code and the zombuul plugin on the pod so an agent can run *inside* the pod (used by `/zombuul:run-experiment <spec> --remote`). Omit for the default case where your local Claude drives the pod over SSH.
+- `--disk-gb N` (optional): container disk size (local NVMe; holds `/opt/hf_cache`, venv, checkpoints). Defaults from `~/.claude/zombuul.yaml` (currently 100). Callers that know what the pod will run (e.g. `/zombuul:run-experiment`) should set this explicitly based on spec needs; the default is only appropriate for small models.
+- `--volume-gb N` (optional): network volume size (MooseFS; for durable outputs that must persist across pauses). Defaults from config (currently 50). Note: MooseFS has a hidden per-user quota; `df` on `/workspace` reports the full pool but writes fail well before that — size conservatively and keep large downloads (HF cache) off the volume.
 
 ## Process
 
@@ -33,11 +35,12 @@ Spin up a RunPod GPU pod interactively.
 
 4. **Ask for docker image** if not obvious. Default comes from config (`~/.claude/zombuul.yaml` or shipped defaults). Only ask if the user might want a different image.
 
-5. **Create the pod** **in the background** (docker image, volume, and disk size default from config):
+5. **Create the pod** **in the background** (docker image defaults from config; disk/volume come from flags or config):
    - GPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --gpu-count <n>`
    - CPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --cpu`
    - Add `--image "<image>"` only if the user specified a non-default image.
    - Add `--install-claude` if the caller passed `--remote` in `$ARGUMENTS`.
+   - Add `--disk-gb <N>` if the caller passed `--disk-gb` in `$ARGUMENTS`; same for `--volume-gb`. Omit both flags to fall back to config defaults.
    Use the pod name from $ARGUMENTS if provided, otherwise default to "research". The script auto-detects the repo URL and branch from the current working directory, creates the pod, waits for SSH, and SCPs `pod_setup.sh`. Claude Code credentials are only copied and installed when `--install-claude` is set.
 
 6. **Ask about provisioning**: After getting the pod ID, IP, and port from the create output, ask the user via AskUserQuestion:
