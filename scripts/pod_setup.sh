@@ -47,12 +47,10 @@ if [ -f /proc/1/environ ]; then
 fi
 
 # Fallback: check for .env synced by provision-pod.
-# Use a read-loop with whitelist case match so values with spaces/quotes
-# don't break parsing (the old `export $(grep | xargs)` pattern did).
 for envfile in "$REPO_DIR/.env" /tmp/.env; do
     if [ -f "$envfile" ]; then
         echo "Found .env at $envfile — sourcing tokens."
-        while IFS='=' read -r key value; do
+        while IFS='=' read -r key value || [ -n "$key" ]; do
             case "$key" in
                 GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY)
                     value="${value%\"}"; value="${value#\"}"
@@ -152,11 +150,11 @@ fi
 export UV_CACHE_DIR=/opt/uv_cache
 export HF_HOME=/opt/hf_cache
 mkdir -p /opt/uv_cache /opt/hf_cache
-# Belt-and-braces: redirect the default HF cache path to container disk too,
-# so tools that ignore HF_HOME still avoid the NFS/MooseFS volume.
 mkdir -p /root/.cache
-rm -rf /root/.cache/huggingface
-ln -sfn /opt/hf_cache /root/.cache/huggingface
+# Only replace /root/.cache/huggingface if missing or a symlink; never rm a real cache dir.
+if [ -L /root/.cache/huggingface ] || [ ! -e /root/.cache/huggingface ]; then
+    ln -sfn /opt/hf_cache /root/.cache/huggingface
+fi
 
 # --- Python environment ---
 
@@ -170,9 +168,13 @@ fi
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
-# Discoverability: symlink $REPO_DIR/.venv → /opt/venvs/research so IDEs,
-# `uv`, and bare `.venv/bin/python` invocations find the research venv.
-ln -sfn /opt/venvs/research "$REPO_DIR/.venv"
+# Replace any existing .venv first: ln -sfn into an existing dir nests the symlink inside it.
+if [ -L "$REPO_DIR/.venv" ] || [ ! -e "$REPO_DIR/.venv" ]; then
+    ln -sfn /opt/venvs/research "$REPO_DIR/.venv"
+else
+    rm -rf "$REPO_DIR/.venv"
+    ln -sfn /opt/venvs/research "$REPO_DIR/.venv"
+fi
 # Install project dependencies.
 # Supports pyproject.toml (with optional extras), requirements.txt, or setup.py.
 # Skips install if none are found.
