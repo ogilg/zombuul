@@ -22,7 +22,7 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
    ```
    ssh runpod-<pod_name> 'tmux list-sessions 2>/dev/null; ps aux | grep python | grep -v grep'
    ```
-   Save this output — it goes into the cron prompt so the babysitter agent knows the session name and exact command to restart. If the job was launched without tmux (legacy), fall back to the `ps` output alone.
+   Save this output — it goes into the cron prompt so the babysitter agent knows the session name and exact command to restart.
 
 3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template:
 

@@ -16,8 +16,8 @@ Spin up a RunPod GPU pod interactively.
 
 - `pod_name` (optional): short kebab-case pod name. Default `research`.
 - `--remote` (optional flag): if present, pass `--install-claude` to the create command. This installs Claude Code and the zombuul plugin on the pod so an agent can run *inside* the pod (used by `/zombuul:run-experiment <spec> --remote`). Omit for the default case where your local Claude drives the pod over SSH.
-- `--disk-gb N` (optional): container disk size (local NVMe; holds `/opt/hf_cache`, venv, checkpoints). Defaults from `~/.claude/zombuul.yaml` (currently 100). Callers that know what the pod will run (e.g. `/zombuul:run-experiment`) should set this explicitly based on spec needs; the default is only appropriate for small models.
-- `--volume-gb N` (optional): network volume size (MooseFS; for durable outputs that must persist across pauses). Defaults from config (currently 50). Note: MooseFS has a hidden per-user quota; `df` on `/workspace` reports the full pool but writes fail well before that — size conservatively and keep large downloads (HF cache) off the volume.
+- `--disk-gb N` (optional): container disk (local NVMe; HF cache, venv, checkpoints). Default 100 from config; size up for larger models.
+- `--volume-gb N` (optional): network volume (MooseFS; durable outputs). Default 50 from config.
 
 ## Process
 
