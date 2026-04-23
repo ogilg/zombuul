@@ -46,12 +46,21 @@ if [ -f /proc/1/environ ]; then
     export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|RUNPOD_POD_ID)=')
 fi
 
-# Fallback: check for .env synced by provision-pod
+# Fallback: check for .env synced by provision-pod.
+# Use a read-loop with whitelist case match so values with spaces/quotes
+# don't break parsing (the old `export $(grep | xargs)` pattern did).
 for envfile in "$REPO_DIR/.env" /tmp/.env; do
     if [ -f "$envfile" ]; then
         echo "Found .env at $envfile — sourcing tokens."
-        # shellcheck disable=SC2046
-        export $(grep -E '^(GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY)=' "$envfile" | xargs)
+        while IFS='=' read -r key value; do
+            case "$key" in
+                GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY)
+                    value="${value%\"}"; value="${value#\"}"
+                    value="${value%\'}"; value="${value#\'}"
+                    export "$key=$value"
+                    ;;
+            esac
+        done < "$envfile"
         break
     fi
 done
@@ -61,13 +70,13 @@ done
 retry "apt-get update" 3 10 apt-get update
 
 install_system_packages() {
-    if command -v jq &>/dev/null && command -v rsync &>/dev/null; then
-        echo "jq and rsync already installed."
+    if command -v jq &>/dev/null && command -v rsync &>/dev/null && command -v tmux &>/dev/null; then
+        echo "jq, rsync, and tmux already installed."
         return 0
     fi
-    apt-get install -y jq rsync
+    apt-get install -y jq rsync tmux
 }
-retry "install jq+rsync" 3 10 install_system_packages
+retry "install jq+rsync+tmux" 3 10 install_system_packages
 
 # gh CLI (non-critical — used for PR operations but not essential)
 install_gh() {
@@ -161,6 +170,9 @@ fi
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
+# Discoverability: symlink $REPO_DIR/.venv → /opt/venvs/research so IDEs,
+# `uv`, and bare `.venv/bin/python` invocations find the research venv.
+ln -sfn /opt/venvs/research "$REPO_DIR/.venv"
 # Install project dependencies.
 # Supports pyproject.toml (with optional extras), requirements.txt, or setup.py.
 # Skips install if none are found.
@@ -248,3 +260,5 @@ if [ ${#SETUP_FAILURES[@]} -gt 0 ]; then
 else
     echo "=== Setup complete ==="
 fi
+echo "Research venv: /opt/venvs/research/bin/python (also symlinked at $REPO_DIR/.venv)"
+echo "HF cache: /opt/hf_cache  UV cache: /opt/uv_cache"
