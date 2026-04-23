@@ -255,30 +255,12 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 
 ## Sizing a pod from the spec
 
-Before launching a new pod, derive `--disk-gb` and `--volume-gb` from what the spec is actually going to do. The config defaults (100 / 50) are only adequate for small models (≤13B). Do not rely on them for anything larger — undersized pods fail mid-run with ENOSPC or MooseFS quota errors that cost a full restart.
+Defaults (100 GB disk / 50 GB volume) only fit small models (≤13B). Derive `--disk-gb` and `--volume-gb` from the spec before launching — undersized pods fail mid-run and cost a full restart.
 
-**Container disk (`--disk-gb`)** — local NVMe on the pod. Holds `/opt/hf_cache` (HF weights), the Python venv, and any checkpoints/activations you generate during the run. Rough formula:
+- **`--disk-gb`** (container NVMe; HF cache + venv + local outputs): `model_params_B × 2.5 + 30 + local_outputs_gb`. Anchors: 27B → 100, 70B → 210, 122B → 400. When unsure, round up.
+- **`--volume-gb`** (MooseFS; durable outputs that must survive pod deletion): default 50 is usually fine. Note: MooseFS has a hidden per-user quota; `df` reports the pool, not the limit.
 
-```
-disk_gb ≈ model_params_in_B × 2.5    # bf16/fp16 weights + ~25% headroom
-        + 30                         # venv, tooling, logs
-        + expected_local_outputs_gb  # activations, checkpoints written locally
-```
-
-Concrete anchors: a 27B model → ~100 GB (default is fine). 70B → ~210 GB. 122B → ~355 GB — pass `--disk-gb 400` or higher. If the spec involves multiple models or iterative checkpointing, add their budgets.
-
-**Network volume (`--volume-gb`)** — MooseFS, persists across pauses, slower than NVMe, and has a hidden per-user quota (don't trust the "71 TB free" reported by `df`). Use only for durable outputs that must survive pod deletion. Size based on:
-
-```
-volume_gb ≈ expected_durable_artifacts_gb  # activations you rsync back, final checkpoints
-          + 20                             # headroom
-```
-
-Most experiments don't need more than the default 50. Bump it only when the spec explicitly writes large outputs to a gitignored path that needs to persist.
-
-**When in doubt, over-provision disk rather than volume** — container disk is cheap-per-GB-per-hour and the failure mode of undersizing it is catastrophic (full restart), whereas volume undersizing is recoverable by rsyncing off.
-
-Briefly note the chosen sizes and your reasoning in the running log so the user can critique them.
+Note the chosen sizes in the running log.
 
 ## Report zombuul bugs
 
