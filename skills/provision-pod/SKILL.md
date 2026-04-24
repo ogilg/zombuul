@@ -59,6 +59,8 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
 The pod's `/workspace` lives on a MooseFS network volume with a hidden per-user quota. `df` reports the full pool (often tens of TB) but writes fail well before that. If an experiment needs to download large model weights, keep them off `/workspace` — `pod_setup.sh` already points `HF_HOME` at `/opt/hf_cache` on container disk for this reason. Flag to the user if the spec implies large writes to `/workspace`.
 
+Flip side: pause preserves `/workspace/` but wipes container disk. The two filesystems have opposite tradeoffs — experiment outputs that must survive pause belong on `/workspace/`; caches and venvs belong on container disk.
+
 ## Report zombuul bugs
 
 If anything went wrong this session that zombuul could plausibly have done better, follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.

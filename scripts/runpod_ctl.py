@@ -287,7 +287,10 @@ def list_pods():
 def pause_pod(pod_id: str):
     print(f"Pausing pod {pod_id}...")
     runpod.stop_pod(pod_id)
-    print("Pod paused. Disk is preserved; GPU billing stopped.")
+    print("Pod paused. GPU billing stopped.")
+    print("Note: /workspace volume preserved; container disk (/, /opt/, /root/) is WIPED on resume.")
+    print("If important experiment data lives on container disk, rsync it off-pod or to /workspace/ before pausing.")
+    print("(Persistence is best-effort, not a guarantee — /workspace/ has its own pathologies.)")
 
 
 def terminate_pod(pod_id: str, yes: bool = False):

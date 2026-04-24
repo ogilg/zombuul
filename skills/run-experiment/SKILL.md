@@ -257,8 +257,17 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 
 Defaults (100 GB disk / 50 GB volume) only fit small models. Derive `--disk-gb` and `--volume-gb` from the spec before launching — undersized pods fail mid-run and cost a full restart.
 
-- **`--disk-gb`** (container NVMe; HF cache + venv + local outputs): `model_params_B × 2.5 + 30 + local_outputs_gb`. Round up.
-- **`--volume-gb`** (MooseFS; durable outputs only): default 50 is usually fine.
+**Persistence semantics (read first):** the two filesystems have opposite tradeoffs.
+
+- **Container disk** (`/`, `/opt/`, `/root/`) is fast local NVMe, no quota — but **wiped on pause/resume**. Use for HF cache, venv, regenerable intermediates.
+- **`/workspace/`** is a MooseFS network volume — durable across pause but has a hidden per-user quota (writes start failing around ~90 GB observed) and transient I/O errors on large-concurrent-write patterns (e.g. HuggingFace xet). Use for the cloned repo, logs, and experiment outputs that must survive pause.
+
+The default posture: HF cache + venv on container disk; experiment outputs directly on `/workspace/`. If outputs are both large (>50 GB) and need to survive pause, rsync off-pod rather than relying on `/workspace/`.
+
+**Typical sizing:**
+
+- **`--disk-gb`** (container): `model_params_B × 2.5 + 30 + temp_intermediates_gb`. Round up. Anchors: 27B → 100, 70B → 210, 122B → 500.
+- **`--volume-gb`** (workspace): default 50 is usually fine. Keep it small to avoid approaching quota — anything bigger is a signal you should probably rsync off-pod instead.
 
 Note the chosen sizes in the running log.
 
