@@ -146,9 +146,9 @@ Keep commits small and labeled (`log: <step>`, `result: <step>`, `fix: <what>`).
 
 1. Run `/zombuul:review-experiment-report` via an Agent subagent on the report path.
 2. Final commits + push (cherry-pick-friendly ordering, see [Commit ordering](#commit-ordering)):
-   1. First, commit any remaining code/scripts/data artifacts in a separate commit (respect `.gitignore`; large files that aren't already gitignored should be added to `.gitignore` rather than committed).
+   1. First, commit code/scripts/data artifacts (separate commits, labeled meaningfully). Respect `.gitignore`; large files that aren't already gitignored should be added to `.gitignore` rather than committed.
    2. Then, a final commit containing only `experiments/{name}/` — the deliverable.
-   3. Push.
+   3. `git push -u origin HEAD`.
 3. Exit cleanly. The launch script will pause the pod automatically.
 
 ## Execution model
@@ -264,15 +264,15 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 
 The experiment runs on a worktree branch but the deliverable — `experiments/{name}/` (spec, report, assets, running log) — should land on `main` without dragging in code/script/results changes that may not be ready to merge.
 
-**Convention:** structure commits so the final commit on the worktree branch contains only `experiments/{name}/`. Earlier commits hold everything else (new modules under `src/`, scripts under `scripts/{name}/`, results files, config changes, .gitignore updates).
+**Convention:** every commit that touches `experiments/{name}/` should ONLY touch `experiments/{name}/`. Code, scripts, results files, and config changes go in separate commits. (On-pod mode's incremental `log:` commits already follow this — they're scoped via `git add experiments/<name>/`.)
 
-This lets the user pull the deliverable to main with one command after the experiment finishes:
+This lets the user pull the deliverable to main with a single path-scoped checkout — works regardless of how many commits touched the experiment dir:
 
 ```
-git cherry-pick <final-experiment-commit-sha>
-# or
 git checkout <experiment-branch> -- experiments/{name}/ && git commit
 ```
+
+In local mode, where the experiment dir is typically created in one final commit, `git cherry-pick <final-experiment-commit-sha>` also works.
 
 No PR required for the report itself. PRs are reserved for cases where the experiment also produced reusable code worth reviewing.
 
