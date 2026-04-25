@@ -2,7 +2,7 @@ name: Simplify Review
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types: [opened, reopened, synchronize]
 
 jobs:
   review:
@@ -20,13 +20,20 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Review the changes in this pull request for reuse, quality, and efficiency.
+            Review this PR aggressively for reuse, quality, and efficiency. The goal is concrete suggested changes the author can apply, not a list of concerns.
 
-            First, get the diff: `git diff origin/${{ github.base_ref }}...HEAD`.
+            First, get the diff: `git diff origin/${{ github.base_ref }}...HEAD`. Search the repo for relevant existing utilities before suggesting new patterns.
 
-            Look for:
-            - **Reuse**: new code that duplicates an existing utility. Search the repo for similar patterns; recommend the existing function instead of the new one.
-            - **Quality**: redundant state, parameter sprawl, copy-paste with slight variation, leaky abstractions, stringly-typed code where constants/enums exist, nested conditionals 3+ deep, and unnecessary comments (those explaining WHAT or narrating the change — keep only non-obvious WHY).
-            - **Efficiency**: redundant computation, missed concurrency, hot-path bloat, no-op state updates, TOCTOU pre-checks (existence checks before operating), memory leaks, overly broad operations.
+            What to flag:
+            - **Reuse**: new code that duplicates an existing utility — name the existing function and propose the swap.
+            - **Quality**: redundant state; parameter sprawl; copy-paste with slight variation (unify with a shared abstraction); leaky abstractions; stringly-typed code where constants/enums exist; nested conditionals 3+ deep (flatten with early returns or a lookup table); comments that explain WHAT or narrate the change (keep only non-obvious WHY).
+            - **Efficiency**: redundant computation; missed concurrency; hot-path bloat; no-op state updates inside loops/handlers; TOCTOU pre-checks (operate directly, handle the error); memory leaks; overly broad reads/loads.
 
-            Post a single PR review comment. Order findings by severity (high/medium/low). Be concise — under 250 words. If nothing meaningful to flag, post a one-line "looks clean" comment. Do NOT push commits.
+            How to deliver suggestions — strongly prefer GitHub PR review comments with `suggestion` blocks over prose:
+            - For any change that fits on a few lines, leave an inline review comment on the relevant line(s) with a ```suggestion``` block. The author gets a one-click apply button.
+            - For multi-line refactors, use a multi-line suggestion block on the range.
+            - For larger restructuring that doesn't fit a suggestion block, write a short prose proposal in a top-level review comment with concrete before/after snippets.
+
+            Be aggressive — don't gatekeep on severity. If you'd want a colleague to flag it during review, flag it. Skip only pure stylistic preferences.
+
+            Do NOT push commits — leave everything as suggestions for the author to accept or reject.
