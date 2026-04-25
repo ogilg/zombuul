@@ -8,32 +8,45 @@ jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - uses: anthropics/claude-code-action@main
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
-            Review this PR aggressively for reuse, quality, and efficiency. The goal is concrete suggested changes the author can apply, not a list of concerns.
+            Review this PR aggressively for reuse, quality, and efficiency. Deliver concrete improvements — don't just list concerns.
 
-            First, get the diff: `git diff origin/${{ github.base_ref }}...HEAD`. Search the repo for relevant existing utilities before suggesting new patterns.
+            First, get the diff: `git diff origin/${{ github.base_ref }}...HEAD`. Search the repo for relevant existing utilities before suggesting new code.
 
             What to flag:
-            - **Reuse**: new code that duplicates an existing utility — name the existing function and propose the swap.
-            - **Quality**: redundant state; parameter sprawl; copy-paste with slight variation (unify with a shared abstraction); leaky abstractions; stringly-typed code where constants/enums exist; nested conditionals 3+ deep (flatten with early returns or a lookup table); comments that explain WHAT or narrate the change (keep only non-obvious WHY).
-            - **Efficiency**: redundant computation; missed concurrency; hot-path bloat; no-op state updates inside loops/handlers; TOCTOU pre-checks (operate directly, handle the error); memory leaks; overly broad reads/loads.
+            - **Reuse**: new code duplicating an existing utility — name the existing function and propose the swap.
+            - **Quality**: redundant state; parameter sprawl; copy-paste with slight variation; leaky abstractions; stringly-typed code where constants/enums exist; nested conditionals 3+ deep; comments explaining WHAT or narrating the change (keep only non-obvious WHY).
+            - **Efficiency**: redundant computation; missed concurrency; hot-path bloat; no-op state updates inside loops; TOCTOU pre-checks; memory leaks; overly broad operations.
 
-            How to deliver suggestions — strongly prefer GitHub PR review comments with `suggestion` blocks over prose:
-            - For any change that fits on a few lines, leave an inline review comment on the relevant line(s) with a ```suggestion``` block. The author gets a one-click apply button.
-            - For multi-line refactors, use a multi-line suggestion block on the range.
-            - For larger restructuring that doesn't fit a suggestion block, write a short prose proposal in a top-level review comment with concrete before/after snippets.
+            How to deliver — split into TWO buckets:
 
-            Be aggressive — don't gatekeep on severity. If you'd want a colleague to flag it during review, flag it. Skip only pure stylistic preferences.
+            1. **Commit directly to the PR branch** for changes that are safe and don't require author judgment: dead code removal, dedup against an existing utility, comment removal (WHAT-explainers and change-narrators), trivial renames, mechanical refactors. Rules:
+               - One commit per logical change. Keep commits small and reviewable.
+               - Commit message format: `simplify: <imperative summary>` (e.g. `simplify: dedupe path normalization via existing helper`). The `simplify:` prefix is mandatory — it's how the author filters/reverts your work.
+               - Body: brief WHY the change is correct (1-3 lines).
+               - Push commits to the PR head branch.
 
-            Do NOT push commits — leave everything as suggestions for the author to accept or reject.
+            2. **Inline `suggestion` block** (GitHub PR review comment) for changes that need author judgment: refactor approaches, API shape, anything behavior-affecting, anything you're <90% sure is safe. The author gets a one-click apply button.
+
+            If unsure which bucket: use suggestion, not commit.
+
+            **At the end, post a single top-level PR review comment** with:
+            - "Committed" section: bulleted list of `<sha>` `<commit message>` for each commit you pushed.
+            - "Suggested" section: brief list of suggestion-block comments you left.
+            - "Skipped" section: anything you considered but rejected (one line each).
+
+            This summary is the author's audit trail — be complete.
+
+            Be aggressive on what to flag, conservative on what to commit.
