@@ -6,6 +6,7 @@ on:
 
 jobs:
   review:
+    if: github.actor == 'ogilg'
     runs-on: ubuntu-latest
     permissions:
       contents: write
