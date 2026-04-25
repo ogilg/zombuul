@@ -26,7 +26,9 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
 1. **Parse arguments**: Parse the JSON from `$ARGUMENTS`. Validate that `pod_id`, `pod_name`, `ip`, and `port` are present.
 
-2. **Update SSH config**: Add a `Host runpod-<pod_name>` alias to `~/.ssh/config`. Use the Edit tool to append this block to the end of the file:
+2. **Update SSH config**: Add a `Host runpod-<pod_name>` alias to `~/.ssh/config`.
+
+   First, **remove any existing block** for the same alias so resumes/re-provisions don't accumulate stale entries. Read `~/.ssh/config`; if a `Host runpod-<pod_name>` line already exists, use the Edit tool to delete that block (the `Host` line plus its indented lines, up to but not including the next `Host` line or end-of-file). Then append the fresh block to the end of the file:
    ```
    Host runpod-<pod_name>
        HostName <ip>
@@ -35,6 +37,8 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
        IdentityFile <ssh_key from ~/.claude/zombuul.yaml or default ~/.ssh/id_ed25519>
        StrictHostKeyChecking no
    ```
+
+   This keeps `~/.ssh/config` in sync with the latest provisioning of any given pod name. (Aliases for fully deleted pods are not cleaned here — that's out of scope for provisioning.)
 
 3. **Phase A — concurrent setup + early sync**: Launch all of the following concurrently using `run_in_background`, then wait for ALL to complete before proceeding to Phase B:
 
