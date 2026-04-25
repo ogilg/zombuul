@@ -1,0 +1,52 @@
+name: Simplify Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: anthropics/claude-code-action@main
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this PR aggressively for reuse, quality, and efficiency. Deliver concrete improvements — don't just list concerns.
+
+            First, get the diff: `git diff origin/${{ github.base_ref }}...HEAD`. Search the repo for relevant existing utilities before suggesting new code.
+
+            What to flag:
+            - **Reuse**: new code duplicating an existing utility — name the existing function and propose the swap.
+            - **Quality**: redundant state; parameter sprawl; copy-paste with slight variation; leaky abstractions; stringly-typed code where constants/enums exist; nested conditionals 3+ deep; comments explaining WHAT or narrating the change (keep only non-obvious WHY).
+            - **Efficiency**: redundant computation; missed concurrency; hot-path bloat; no-op state updates inside loops; TOCTOU pre-checks; memory leaks; overly broad operations.
+
+            How to deliver — split into TWO buckets:
+
+            1. **Commit directly to the PR branch** for changes that are safe and don't require author judgment: dead code removal, dedup against an existing utility, comment removal (WHAT-explainers and change-narrators), trivial renames, mechanical refactors. Rules:
+               - One commit per logical change. Keep commits small and reviewable.
+               - Commit message format: `simplify: <imperative summary>` (e.g. `simplify: dedupe path normalization via existing helper`). The `simplify:` prefix is mandatory — it's how the author filters/reverts your work.
+               - Body: brief WHY the change is correct (1-3 lines).
+               - Push commits to the PR head branch.
+
+            2. **Inline `suggestion` block** (GitHub PR review comment) for changes that need author judgment: refactor approaches, API shape, anything behavior-affecting, anything you're <90% sure is safe. The author gets a one-click apply button.
+
+            If unsure which bucket: use suggestion, not commit.
+
+            **At the end, post a single top-level PR review comment** with:
+            - "Committed" section: bulleted list of `<sha>` `<commit message>` for each commit you pushed.
+            - "Suggested" section: brief list of suggestion-block comments you left.
+            - "Skipped" section: anything you considered but rejected (one line each).
+
+            This summary is the author's audit trail — be complete.
+
+            Be aggressive on what to flag, conservative on what to commit.
