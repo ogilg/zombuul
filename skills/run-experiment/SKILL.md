@@ -145,7 +145,10 @@ Keep commits small and labeled (`log: <step>`, `result: <step>`, `fix: <what>`).
 ### OP3: Finish
 
 1. Run `/zombuul:review-experiment-report` via an Agent subagent on the report path.
-2. Final commit + push of report, plots, scripts, data artifacts (respect `.gitignore`; large files that aren't already gitignored should be added to `.gitignore` rather than committed).
+2. Final commits + push (cherry-pick-friendly ordering, see [Commit ordering](#commit-ordering)):
+   1. First, commit code/scripts/data artifacts (separate commits, labeled meaningfully). Respect `.gitignore`; large files that aren't already gitignored should be added to `.gitignore` rather than committed.
+   2. Then, a final commit containing only `experiments/{name}/` — the deliverable.
+   3. `git push -u origin HEAD`.
 3. Exit cleanly. The launch script will pause the pod automatically.
 
 ## Execution model
@@ -251,7 +254,27 @@ Scannable — someone should grasp the full arc in 30 seconds. Headlines over pr
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
 5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
 6. **Sync results** (local mode only, if a pod was used): sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
-7. **Commit and push.** Commit all outputs — reports, plots, scripts, data files (scores, configs, JSON results). Push: `git push -u origin HEAD`. Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
+7. **Commit and push** (cherry-pick-friendly ordering, see [Commit ordering](#commit-ordering)):
+   1. First, commit code/scripts/data artifacts (separate commits, labeled meaningfully).
+   2. Then, a final commit containing only `experiments/{name}/` — the deliverable.
+   3. `git push -u origin HEAD`.
+   Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
+
+## Commit ordering
+
+The experiment runs on a worktree branch but the deliverable — `experiments/{name}/` (spec, report, assets, running log) — should land on `main` without dragging in code/script/results changes that may not be ready to merge.
+
+**Convention:** every commit that touches `experiments/{name}/` should ONLY touch `experiments/{name}/`. Code, scripts, results files, and config changes go in separate commits. (On-pod mode's incremental `log:` commits already follow this — they're scoped via `git add experiments/<name>/`.)
+
+This lets the user pull the deliverable to main with a single path-scoped checkout — works regardless of how many commits touched the experiment dir:
+
+```
+git checkout <experiment-branch> -- experiments/{name}/ && git commit
+```
+
+In local mode, where the experiment dir is typically created in one final commit, `git cherry-pick <final-experiment-commit-sha>` also works.
+
+No PR required for the report itself. PRs are reserved for cases where the experiment also produced reusable code worth reviewing.
 
 ## Sizing a pod from the spec
 
