@@ -261,10 +261,11 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
         print(f"Timed out waiting for pod {pod_id}. Check RunPod dashboard.")
         return
 
+    _write_ssh_alias(name, ip, port)
     print(f"\nPod is ready!")
     print(f"  ID:  {pod_id}")
     print(f"  GPU: {kind}")
-    print(f"  SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
+    print(f"  SSH: ssh runpod-{name}")
 
     try:
         setup_pod(ip, port, repo_url, branch, python_version, install_claude=install_claude)
@@ -281,7 +282,9 @@ def list_pods():
     for pod in pods:
         status = pod.get("desiredStatus", "UNKNOWN")
         gpu = pod.get("machine", {}).get("gpuDisplayName", "?")
-        print(f"  {pod['id']:25s} {pod['name']:30s} {status:10s} {gpu}")
+        name = pod.get("name", "")
+        ssh_hint = f"ssh runpod-{name}" if status == "RUNNING" and name else ""
+        print(f"  {pod['id']:25s} {pod['name']:30s} {status:10s} {gpu:30s} {ssh_hint}")
 
 
 def _write_ssh_alias(name: str, ip: str, port: int) -> None:
@@ -383,10 +386,18 @@ def resume_pod(pod_id: str, gpu_count: int = 1):
     runpod.resume_pod(pod_id, gpu_count=gpu_count)
     print("Pod resume requested. Waiting for SSH...")
     ip, port = wait_for_ssh(pod_id)
-    if ip:
-        print(f"Pod is ready! SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
-    else:
+    if not ip:
         print("Timed out waiting for pod. Check RunPod dashboard.")
+        return
+    pods = runpod.get_pods()
+    match = next((p for p in pods if p["id"] == pod_id), None)
+    name = match.get("name") if match else None
+    if name:
+        _write_ssh_alias(name, ip, port)
+        print(f"Pod is ready! SSH: ssh runpod-{name}")
+    else:
+        print(f"Pod is ready! SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
+        print("  (No pod name found — couldn't auto-write SSH alias.)")
 
 
 def setup_status(pod_id: str):
