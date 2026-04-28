@@ -1,22 +1,31 @@
 ---
 name: zombuul:babysit
 description: >
-  Monitor a long-running job on a RunPod GPU pod. Checks every 5 min, restarts on crash, pauses pod when done.
-  Argument $ARGUMENTS — `<pod_name> <description of what's running>`.
+  Monitor a long-running job on a RunPod GPU pod. Checks every 5 min, restarts on crash, and either
+  pauses the pod or fires a follow-up prompt when done.
+  Argument $ARGUMENTS — `<pod_name> <description> [--on-complete "<prompt>"]`.
   Use when a GPU job is expected to take >10 min and may crash (I/O errors, OOM, SSH timeouts).
-  The description should say what's running and how to tell when it's done (e.g., "E1c extraction — 121 conditions in activations/qwen35_122b_ood/e1c/").
+  The description should say what's running and how to tell when it's done. Pass `--on-complete`
+  to chain the next step (e.g. `/zombuul:finalize-experiment <spec> --pod <name>`) so the workflow
+  resumes automatically when the job finishes.
 user-invocable: true
 ---
 
-Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning up when done.
+Monitor a long-running GPU job on a RunPod pod, restarting on crash and either pausing the pod or handing off to a follow-up step when the job finishes.
 
 ## Arguments
 
-`$ARGUMENTS` is `<pod_name> <description>`. The first whitespace-delimited token is the pod name (must match an SSH alias `runpod-<pod_name>`). Everything after it is a natural-language description of what's running and how to tell when it's done.
+`$ARGUMENTS` is `<pod_name> <description> [--on-complete "<prompt>"]`.
+
+- `<pod_name>` (first whitespace-delimited token, required) — must match an SSH alias `runpod-<pod_name>`.
+- `<description>` (required) — natural-language description of what's running and how to tell when it's done. Used as the body of the cron's progress reporting.
+- `--on-complete "<prompt>"` (optional) — a self-contained prompt to fire when the job finishes cleanly. Most often `/zombuul:finalize-experiment <spec_path> --pod <pod_name>`. When set, babysit does NOT pause the pod itself — the on-complete prompt is responsible for syncing results, pausing, etc. When not set, babysit pauses the pod itself on completion.
+
+To parse: `--on-complete` is followed by a quoted string. Everything between the quotes after `--on-complete` is the on-complete prompt; everything before `--on-complete` (after the pod name) is the description.
 
 ## Process
 
-1. **Parse arguments.** Split into pod_name and description. If either is empty, show usage and stop.
+1. **Parse arguments.** Split out `pod_name`, `description`, and optional `on_complete`. If pod_name or description is empty, show usage and stop.
 
 2. **Snapshot the running command and its tmux session.** SSH to the pod and capture both:
    ```
@@ -24,13 +33,14 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
    ```
    Save this output — it goes into the cron prompt so the babysitter agent knows the session name and exact command to restart.
 
-3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template:
+3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template (omit the `--on-complete` block if not provided):
 
    ```
    You are babysitting a GPU job on pod "{pod_name}" (SSH: `runpod-{pod_name}`).
 
    **What's running:** {description}
    **Last known command:** {snapshot from step 2}
+   {if on_complete: **On completion, fire this prompt:** {on_complete}}
 
    ## Check
 
@@ -45,8 +55,9 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
       d. If crashed → restart using the last known command above inside a new tmux session (`tmux new-session -d -s <session> '<cmd>'`). Report what happened.
 
    4. **If done** (all expected outputs exist per the description):
-      a. Report completion.
-      b. Pause the pod: invoke `/zombuul:pause-runpod {pod_name}`.
+      a. Report completion (one line + total runtime if you can derive it).
+      b. {if on_complete: Enqueue the follow-up via `CronCreate(cron="<minute+1> <hour> <day> <month> *", recurring=false, prompt="{on_complete}")` so it fires once, ~1 minute from now. Do NOT pause the pod — the follow-up is responsible for any syncing/pausing.}
+         {else: Pause the pod by invoking `/zombuul:pause-runpod {pod_name}`.}
       c. Cancel this cron job: use `CronList` to find the job whose prompt mentions "{pod_name}", then `CronDelete <id>`.
 
    Keep output to 1-3 lines unless something went wrong.
@@ -54,7 +65,11 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and cleaning
 
 4. **Run the first check immediately** — execute the same SSH process check inline so the user gets instant feedback. Don't wait for the first cron tick.
 
-5. **Report:** Show the cron job ID, what it's monitoring, and `CronDelete <id>` to cancel.
+5. **Report:** Show the cron job ID, what it's monitoring, whether an on-complete is wired up, and `CronDelete <id>` to cancel.
+
+## Why on-complete doesn't pause the pod
+
+The follow-up prompt typically needs to rsync results from the pod before pausing — and you can't rsync from a paused pod (SSH is dead). So when `--on-complete` is set, babysit's success branch hands off to the follow-up with the pod still alive, and the follow-up handles its own pause as the final step. Without on-complete, babysit pauses immediately because no further work is queued.
 
 ## Report zombuul bugs
 
