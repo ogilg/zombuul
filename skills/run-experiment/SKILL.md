@@ -144,12 +144,7 @@ Keep commits small and labeled (`log: <step>`, `result: <step>`, `fix: <what>`).
 
 ### OP3: Finish
 
-1. Run `/zombuul:review-experiment-report` via an Agent subagent on the report path.
-2. Final commits + push (cherry-pick-friendly ordering, see [Commit ordering](#commit-ordering)):
-   1. First, commit code/scripts/data artifacts (separate commits, labeled meaningfully). Respect `.gitignore`; large files that aren't already gitignored should be added to `.gitignore` rather than committed.
-   2. Then, a final commit containing only `experiments/{name}/` — the deliverable.
-   3. `git push -u origin HEAD`.
-3. Exit cleanly. The launch script will pause the pod automatically.
+Hand off to `/zombuul:finalize-experiment <spec_path>` (no `--pod` — `IS_SANDBOX=1` means you're already on the pod; results don't need syncing). Finalize handles the report, the review, and the cherry-pick-friendly commit ordering. Exit cleanly when finalize returns. The launch script will pause the pod automatically on exit.
 
 ## Execution model
 
@@ -169,8 +164,8 @@ For GPU jobs expected to take more than ~10 minutes, launch inside tmux + invoke
 
 1. Launch the job in a named tmux session (pick `<session>` to match the job, e.g. `extraction`):
    `ssh runpod-<name> "tmux new-session -d -s <session> 'cd /workspace/repo && python -u -m <module> > <log_path> 2>&1'"`
-2. Invoke `/zombuul:babysit <pod_name> <description>` — this sets up a cron job that checks every 5 min, restarts on crash, and pauses the pod when done. Include the tmux session name in the description so babysit can check liveness via `tmux has-session`.
-3. You are free to work on other tasks while the babysitter monitors. It will report progress and any issues to the conversation.
+2. Invoke `/zombuul:babysit <pod_name> <description> --on-complete "/zombuul:finalize-experiment <spec_path> --pod <pod_name>"`. The `--on-complete` flag is the resumption hook: when the cron detects the job has finished cleanly, it fires that prompt as a one-shot, which re-enters the workflow at the finalize step (sync results → pause pod → analyze → review → commit). Include the tmux session name in the description so babysit can check liveness via `tmux has-session`.
+3. You are free to work on other tasks while the babysitter monitors. It will report progress and any issues to the conversation. **Do NOT continue to the workflow's tail steps yourself** — finalize-experiment will fire when the job is done.
 
 **Audit on launch:**
 When you launch a long-running job (extraction, training, generation, steering), immediately spawn an audit subagent (Agent tool, subagent_type="general-purpose", model="opus") in the background. The subagent checks the setup independently — it should not trust your assumptions. Pass it the spec and the paths to all data/config files being used. The subagent should:
@@ -242,39 +237,17 @@ All scripts you write during this experiment go here — experiment runners, ana
 
 **Plotting**: Delegate plot creation to subagents (Agent tool, subagent_type="general-purpose", model="opus"). Describe what to plot and where to save it — the subagent writes the script and runs it. This keeps plotting code out of your context.
 
-## Report style guide
-
-Scannable — someone should grasp the full arc in 30 seconds. Headlines over prose, tables over text, dead ends in one line each. Include plots at key checkpoints (save to `assets/`). Include enough detail to reproduce (parameters, prompts, configs) but stay concise. Favor results (numbers, tables, plots) over interpretive prose — keep interpretation to short inline remarks or a few bullets, not dedicated sections. The `/zombuul:review-experiment-report` subagent will catch clarity issues — focus on content first.
-
 ## Workflow
 
 1. **Setup** (Phase 1 + Phase 2 for local mode; R1–R4 for remote-launcher; OP1 for on-pod).
 2. **Read the spec.** Set up infrastructure.
 3. Create scripts workspace, report skeleton, and running log.
 4. Run baseline, then iterate. Log each step to the running log. Update the report at major milestones with plots. If an approach fails, log it and pivot.
-5. **Review the report.** Launch a subagent (Agent tool, subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to `report.md`. Do not skip this step.
-6. **Sync results** (local mode only, if a pod was used): sync all results back locally. Pause the pod via `/zombuul:pause-runpod`.
-7. **Commit and push** (cherry-pick-friendly ordering, see [Commit ordering](#commit-ordering)):
-   1. First, commit code/scripts/data artifacts (separate commits, labeled meaningfully).
-   2. Then, a final commit containing only `experiments/{name}/` — the deliverable.
-   3. `git push -u origin HEAD`.
-   Check `.gitignore` before committing large files. If you generate data files that exceed ~50MB and aren't already gitignored, add them to `.gitignore` rather than committing. (In on-pod mode you've already been pushing incrementally — this final push just tops it off.)
-
-## Commit ordering
-
-The experiment runs on a worktree branch but the deliverable — `experiments/{name}/` (spec, report, assets, running log) — should land on `main` without dragging in code/script/results changes that may not be ready to merge.
-
-**Convention:** every commit that touches `experiments/{name}/` should ONLY touch `experiments/{name}/`. Code, scripts, results files, and config changes go in separate commits. (On-pod mode's incremental `log:` commits already follow this — they're scoped via `git add experiments/<name>/`.)
-
-This lets the user pull the deliverable to main with a single path-scoped checkout — works regardless of how many commits touched the experiment dir:
-
-```
-git checkout <experiment-branch> -- experiments/{name}/ && git commit
-```
-
-In local mode, where the experiment dir is typically created in one final commit, `git cherry-pick <final-experiment-commit-sha>` also works.
-
-No PR required for the report itself. PRs are reserved for cases where the experiment also produced reusable code worth reviewing.
+5. **Hand off to finalize.**
+   - Local mode with babysit: babysit's `--on-complete` fires `/zombuul:finalize-experiment <spec_path> --pod <pod_name>` automatically. Stop here — finalize will handle sync, analysis, report, review, commit.
+   - Local mode without babysit (short job): when the work is done, invoke `/zombuul:finalize-experiment <spec_path> --pod <pod_name>` directly.
+   - On-pod mode: invoke `/zombuul:finalize-experiment <spec_path>` (no `--pod`).
+   - Local mode with no pod at all: invoke `/zombuul:finalize-experiment <spec_path>` directly.
 
 ## Sizing a pod from the spec
 
