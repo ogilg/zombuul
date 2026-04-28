@@ -11,7 +11,7 @@ If during this session anything went wrong that zombuul could plausibly have don
 ## How
 
 ```
-gh issue create --repo ogilg/zombuul \
+gh issue create --repo oscar-gilg/zombuul \
   --title "<short>" \
   --body "<what happened + concrete command/error + suggested fix if obvious>"
 ```
@@ -25,6 +25,6 @@ Document it well. At minimum:
 ## Conventions
 
 - Batch multiple small papercuts from one session into a single issue rather than filing five separate ones.
-- Before filing, skim recent open issues (`gh issue list --repo ogilg/zombuul --state open --limit 20`) and add a comment to an existing one instead of duplicating.
+- Before filing, skim recent open issues (`gh issue list --repo oscar-gilg/zombuul --state open --limit 20`) and add a comment to an existing one instead of duplicating.
 - Tell the user in one line that you're filing so they can override ("Filing a zombuul issue about the `.env` parse error — let me know if you'd rather I skip it.").
 - Don't block on this — it's a reflection at session end or after hitting the bug, not during active work.
