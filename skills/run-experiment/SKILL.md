@@ -159,6 +159,8 @@ Hand off to `/zombuul:finalize-experiment <spec_path>` (no `--pod` — `IS_SANDB
 - Short commands (<10 min): use `run_in_background` on the Bash tool. You get notified when they complete.
 - While waiting: prepare next steps, write analysis code, set up plotting scripts.
 
+**Monitor timeouts:** if you ever see `[Monitor timed out — re-arm if needed.]` in your context, your literal next tool call must be a fresh `Monitor` on the same target. Do not run any other tool, do not summarize, do not check progress first. Re-arm, then resume.
+
 **Babysitting long GPU jobs (local mode only):**
 For GPU jobs expected to take more than ~10 minutes, launch inside tmux + invoke babysit instead of using `run_in_background`. tmux sessions survive SSH drops; babysit handles crash recovery.
 
