@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 print = functools.partial(print, flush=True)
 
 SSH_KEY = "~/.ssh/id_ed25519"
-SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"]
+SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5", "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=10"]
 USER_CONFIG = "~/.claude/zombuul.yaml"
 VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "python_version", "ssh_key", "template_id"}
 
@@ -297,6 +297,8 @@ def _write_ssh_alias(name: str, ip: str, port: int) -> None:
         f"    Port {port}\n"
         f"    IdentityFile {SSH_KEY}\n"
         f"    StrictHostKeyChecking no\n"
+        f"    ServerAliveInterval 30\n"
+        f"    ServerAliveCountMax 10\n"
     )
     cfg_path = os.path.expanduser("~/.ssh/config")
     if not os.path.exists(cfg_path):
