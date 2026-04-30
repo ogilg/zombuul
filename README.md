@@ -1,7 +1,5 @@
 # Zombuul
 
-![Clones](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/oscar-gilg/zombuul/main/.github/clone-count.json)
-
 Run AI safety experiments end-to-end, from spec to report. Claude Code handles the GPU pod, orchestration, and writeup. Locally, or fully remote.
 
 ## Install
