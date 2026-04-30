@@ -46,15 +46,17 @@ To parse: `--on-complete` is followed by a quoted string. Everything between the
 
    1. Liveness: `ssh runpod-{pod_name} 'tmux has-session -t <session> 2>/dev/null && echo alive || echo dead'`. If the job was launched without tmux, fall back to `ps aux | grep python | grep -v grep`.
 
-   2. **If alive:** Check progress from the description (count output files, tail logs, etc.). Report one line: "{N}/{total} done" or similar.
+   2. Disk: `ssh runpod-{pod_name} 'df -h / /workspace 2>/dev/null | tail -2'`. Surface usage as one line: `disk: / 67%, /workspace 42%`. If either is ≥ 85%, prefix the entire report with **DISK WARN** — disk-full causes silent corruption (xet IO errors, partial checkpoint writes, lost activations) and is a likely cause of crashes if dead.
 
-   3. **If dead:**
+   3. **If alive:** Check progress from the description (count output files, tail logs, etc.). Report one line: "{N}/{total} done" or similar.
+
+   4. **If dead:**
       a. Check logs: `ssh runpod-{pod_name} 'tail -30 /workspace/repo/<likely_log_path>'`
-      b. Diagnose (OOM? I/O error? completed successfully?).
-      c. If completed successfully → go to step 4.
+      b. Diagnose (OOM? I/O error? disk full per step 2? completed successfully?).
+      c. If completed successfully → go to step 5.
       d. If crashed → restart using the last known command above inside a new tmux session (`tmux new-session -d -s <session> '<cmd>'`). Report what happened.
 
-   4. **If done** (all expected outputs exist per the description):
+   5. **If done** (all expected outputs exist per the description):
       a. Report completion (one line + total runtime if you can derive it).
       b. {if on_complete: Enqueue the follow-up via `CronCreate(cron="<minute+1> <hour> <day> <month> *", recurring=false, prompt="{on_complete}")` so it fires once, ~1 minute from now. Do NOT pause the pod — the follow-up is responsible for any syncing/pausing.}
          {else: Pause the pod by invoking `/zombuul:pause-runpod {pod_name}`.}
