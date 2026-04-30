@@ -38,9 +38,11 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
    Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
 
-   - **Sync .env to repo** (if `.env` exists in current working directory): `rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
-   - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && rsync -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
-   - **Sync data directories** (one per directory from `data_dirs`): `rsync -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
+   - **Sync .env to repo** (if `.env` exists in current working directory): `bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
+   - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
+   - **Sync data directories** (one per directory from `data_dirs`): `bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
+
+   Each `safe_rsync.sh` invocation prints a final line `[safe_rsync] EXIT=<code> FILES=<n>` (regardless of `| tail`). Verify each sync's `EXIT=0` and check `FILES`. A non-zero exit means the sync failed; `FILES=0` on a first-time sync of a non-empty source means the source path is wrong or empty.
 
 5. **Report**: Once all background tasks complete, report:
    - SSH command: `ssh runpod-<pod_name>`

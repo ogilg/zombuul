@@ -151,7 +151,7 @@ Hand off to `/zombuul:finalize-experiment <spec_path>` (no `--pod` — `IS_SANDB
 **Local mode — remote vs local command awareness:**
 - GPU-bound commands (model loading, extraction, training, steering) → SSH to pod: `ssh runpod-<name> 'cd /workspace/repo && python -m ...'`
 - CPU-bound commands (analysis, plotting, fitting) → run locally
-- Results from pod need to be synced back: `rsync -az runpod-<name>:/workspace/repo/<results_path> <local_path>`
+- Results from pod need to be synced back: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az runpod-<name>:/workspace/repo/<results_path> <local_path>` (the wrapper prints `[safe_rsync] EXIT=<code> FILES=<n>` so you can confirm the transfer actually moved files)
 
 **On-pod mode:** everything runs locally on the pod. No SSH, no rsync.
 
