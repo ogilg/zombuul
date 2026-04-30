@@ -4,7 +4,7 @@ description: >
   Provision a RunPod pod: wait for setup, configure SSH, sync .env and data.
   Argument $ARGUMENTS — JSON with keys: pod_id, pod_name, ip, port, and optionally spec_path and data_dirs.
 user-invocable: true
-allowed-tools: Bash, AskUserQuestion, Read, Edit, Agent
+allowed-tools: Bash, AskUserQuestion, Read, Agent
 ---
 
 Provision a RunPod pod after creation. Handles SSH config, waits for setup to complete, and syncs project files.
@@ -26,19 +26,7 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
 1. **Parse arguments**: Parse the JSON from `$ARGUMENTS`. Validate that `pod_id`, `pod_name`, `ip`, and `port` are present.
 
-2. **Update SSH config**: Add a `Host runpod-<pod_name>` alias to `~/.ssh/config`.
-
-   First, **remove any existing block** for the same alias so resumes/re-provisions don't accumulate stale entries. Read `~/.ssh/config`; if a `Host runpod-<pod_name>` line already exists, use the Edit tool to delete that block (the `Host` line plus its indented lines, up to but not including the next `Host` line or end-of-file). Then append the fresh block to the end of the file:
-   ```
-   Host runpod-<pod_name>
-       HostName <ip>
-       User root
-       Port <port>
-       IdentityFile <ssh_key from ~/.claude/zombuul.yaml or default ~/.ssh/id_ed25519>
-       StrictHostKeyChecking no
-   ```
-
-   This keeps `~/.ssh/config` in sync with the latest provisioning of any given pod name. (Aliases for fully deleted pods are not cleaned here — that's out of scope for provisioning.)
+2. **SSH alias**: the `Host runpod-<pod_name>` alias is already written to `~/.ssh/config` by `runpod_ctl.py create` (called from `/zombuul:launch-runpod`). Verify with `ssh -o ConnectTimeout=5 runpod-<pod_name> 'echo ok'`. If the alias is missing or stale (rare — happens when the pod was created outside zombuul, or its IP/port changed after a manual pause/resume), run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py refresh-ssh <pod_name>` to refresh it.
 
 3. **Phase A — concurrent setup + early sync**: Launch all of the following concurrently using `run_in_background`, then wait for ALL to complete before proceeding to Phase B:
 
