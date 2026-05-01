@@ -1,17 +1,24 @@
 #!/bin/bash
-# Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude]
+# Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude] [extras]
 # Generic pod bootstrap for zombuul research loops.
 # Tokens come from container env vars (/proc/1/environ), with .env as fallback.
 #
 # install_claude: "true" to install Claude Code + zombuul plugin (for remote-mode
 # experiments where the pod itself runs an agent). Default "false" — local-mode
 # setups only need the repo + Python env, not the agent.
+#
+# extras: which optional-dependency groups from pyproject.toml to install.
+#   "auto"  (default) — install every group declared in [project.optional-dependencies].
+#                       Convenient, but breaks for projects with mutually exclusive groups.
+#   "none"            — install with no extras (`uv pip install -e .`).
+#   "a,b,c"           — install only the listed groups (`uv pip install -e ".[a,b,c]"`).
 set -o pipefail
 
-REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude]}"
+REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude] [extras]}"
 BRANCH="${2:-main}"
 PYTHON_VERSION="${3:-3.12}"
 INSTALL_CLAUDE="${4:-false}"
+EXTRAS="${5:-auto}"
 REPO_DIR="/workspace/repo"
 SETUP_FAILURES=()
 
@@ -179,17 +186,28 @@ fi
 # Supports pyproject.toml (with optional extras), requirements.txt, or setup.py.
 # Skips install if none are found.
 if [ -f "$REPO_DIR/pyproject.toml" ]; then
-    EXTRAS=$(python3 -c "
-import tomllib, sys
+    case "$EXTRAS" in
+        auto)
+            EXTRAS_RESOLVED=$(python3 -c "
+import tomllib
 with open('$REPO_DIR/pyproject.toml', 'rb') as f:
     groups = list(tomllib.load(f).get('project', {}).get('optional-dependencies', {}).keys())
 if groups:
     print(','.join(groups))
 " 2>/dev/null || true)
-    if [ -n "$EXTRAS" ]; then
-        echo "Installing with extras: [$EXTRAS]"
-        retry "pip install project" 3 10 uv pip install -e ".[$EXTRAS]"
+            ;;
+        none|"")
+            EXTRAS_RESOLVED=""
+            ;;
+        *)
+            EXTRAS_RESOLVED="$EXTRAS"
+            ;;
+    esac
+    if [ -n "$EXTRAS_RESOLVED" ]; then
+        echo "Installing with extras: [$EXTRAS_RESOLVED]"
+        retry "pip install project" 3 10 uv pip install -e ".[$EXTRAS_RESOLVED]"
     else
+        echo "Installing with no extras."
         retry "pip install project" 3 10 uv pip install -e .
     fi
 elif [ -f "$REPO_DIR/requirements.txt" ]; then
