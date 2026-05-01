@@ -8,6 +8,7 @@ description: >
   The description should say what's running and how to tell when it's done. Pass `--on-complete`
   to chain the next step (e.g. `/zombuul:finalize-experiment <spec> --pod <name>`) so the workflow
   resumes automatically when the job finishes.
+argument-hint: <pod-name> <description> [--on-complete "<prompt>"]
 user-invocable: true
 ---
 

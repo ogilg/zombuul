@@ -3,6 +3,7 @@ name: zombuul:review-spec
 description: >
   Review an experiment spec for completeness before running it.
   Argument $ARGUMENTS — path to the experiment spec.
+argument-hint: <spec-path>
 user-invocable: true
 ---
 

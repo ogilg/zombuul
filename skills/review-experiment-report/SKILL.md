@@ -3,6 +3,7 @@ name: zombuul:review-experiment-report
 description: >
   Review and rewrite a research report for clarity.
   Argument $ARGUMENTS — path to the report markdown file.
+argument-hint: <report-path>
 user-invocable: true
 ---
 

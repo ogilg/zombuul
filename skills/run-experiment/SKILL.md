@@ -5,6 +5,7 @@ description: >
   If given a natural language description, synthesizes a spec first, then runs it.
   Argument $ARGUMENTS — `<spec_path_or_description> [--remote]`. Pass `--remote` to execute
   autonomously on a GPU pod (survives local disconnects); otherwise runs local-first.
+argument-hint: <spec-path-or-description> [--remote]
 user-invocable: true
 ---
 
