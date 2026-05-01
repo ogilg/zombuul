@@ -193,7 +193,7 @@ def get_repo_url() -> str:
     sys.exit(1)
 
 
-def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.12", install_claude: bool = False):
+def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.12", install_claude: bool = False, extras: str = "auto"):
     setup_script = find_setup_script()
 
     print("  Copying pod_setup.sh...")
@@ -209,8 +209,8 @@ def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: st
             print("  WARNING: No Claude Code credentials found, skipping auth.")
 
     install_claude_flag = "true" if install_claude else "false"
-    print(f"  Running pod_setup.sh in background (repo: {repo_url}, branch: {branch}, python: {python_version}, install_claude: {install_claude_flag})...")
-    cmd = f"nohup bash /pod_setup.sh {shlex.quote(repo_url)} {shlex.quote(branch)} {shlex.quote(python_version)} {shlex.quote(install_claude_flag)} </dev/null > /var/log/pod_setup.log 2>&1 & disown"
+    print(f"  Running pod_setup.sh in background (repo: {repo_url}, branch: {branch}, python: {python_version}, install_claude: {install_claude_flag}, extras: {extras})...")
+    cmd = f"nohup bash /pod_setup.sh {shlex.quote(repo_url)} {shlex.quote(branch)} {shlex.quote(python_version)} {shlex.quote(install_claude_flag)} {shlex.quote(extras)} </dev/null > /var/log/pod_setup.log 2>&1 & disown"
     ssh_run(ip, port, cmd, capture_output=True, text=True)
     print("  Setup running. Check /var/log/pod_setup.log on the pod.")
 
@@ -223,7 +223,7 @@ def list_gpus():
         print(f"  {gpu['id']:45s} {gpu['memoryInGb']}GB")
 
 
-def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4", template_id: str | None = None, install_claude: bool = False):
+def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4", template_id: str | None = None, install_claude: bool = False, extras: str = "auto"):
     kind = gpu_type_id or "CPU-only"
     if template_id:
         print(f"Creating pod '{name}' with {kind} (template: {template_id})...")
@@ -270,7 +270,7 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
     print(f"  SSH: ssh runpod-{name}")
 
     try:
-        setup_pod(ip, port, repo_url, branch, python_version, install_claude=install_claude)
+        setup_pod(ip, port, repo_url, branch, python_version, install_claude=install_claude, extras=extras)
     except Exception as e:
         print(f"  WARNING: Setup failed: {e}")
         print(f"  Pod is still running. SSH in and run setup manually.")
@@ -486,6 +486,7 @@ def main():
     create.add_argument("--disk-gb", type=int, default=config["disk_gb"], help=f"Disk size in GB (default: {config['disk_gb']})")
     create.add_argument("--template-id", default=config.get("template_id"), help="RunPod template ID (default: from config)")
     create.add_argument("--install-claude", action="store_true", help="Install Claude Code + zombuul plugin on the pod (for remote-mode experiments where the pod runs its own agent). Default off.")
+    create.add_argument("--extras", default="auto", help="Which optional-dependency groups from pyproject.toml to install. 'auto' (default) installs all groups; 'none' installs no extras; comma-separated list installs only those groups (e.g. 'training' or 'training,viz'). Use 'none' or a specific list when groups are mutually exclusive (e.g. unsloth vs vllm).")
 
     pause = sub.add_parser("pause", help="Pause a pod (stop GPU billing, keep disk)")
     pause.add_argument("pod_id")
@@ -532,6 +533,7 @@ def main():
             cpu_instance_id=config["cpu_instance_id"],
             template_id=args.template_id,
             install_claude=args.install_claude,
+            extras=args.extras,
         )
     elif args.command == "pause":
         pause_pod(args.pod_id)
