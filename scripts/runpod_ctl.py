@@ -16,7 +16,9 @@ from dotenv import load_dotenv
 print = functools.partial(print, flush=True)
 
 SSH_KEY = "~/.ssh/id_ed25519"
-SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"]
+_SSH_ALIVE_INTERVAL = 30
+_SSH_ALIVE_COUNT_MAX = 10
+SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5", "-o", f"ServerAliveInterval={_SSH_ALIVE_INTERVAL}", "-o", f"ServerAliveCountMax={_SSH_ALIVE_COUNT_MAX}"]
 USER_CONFIG = "~/.claude/zombuul.yaml"
 VALID_CONFIG_KEYS = {"volume_gb", "disk_gb", "docker_image", "gpu_count", "cpu_instance_id", "python_version", "ssh_key", "template_id"}
 
@@ -261,10 +263,11 @@ def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: st
         print(f"Timed out waiting for pod {pod_id}. Check RunPod dashboard.")
         return
 
+    _write_ssh_alias(name, ip, port)
     print(f"\nPod is ready!")
     print(f"  ID:  {pod_id}")
     print(f"  GPU: {kind}")
-    print(f"  SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
+    print(f"  SSH: ssh runpod-{name}")
 
     try:
         setup_pod(ip, port, repo_url, branch, python_version, install_claude=install_claude)
@@ -281,7 +284,80 @@ def list_pods():
     for pod in pods:
         status = pod.get("desiredStatus", "UNKNOWN")
         gpu = pod.get("machine", {}).get("gpuDisplayName", "?")
-        print(f"  {pod['id']:25s} {pod['name']:30s} {status:10s} {gpu}")
+        name = pod.get("name", "")
+        ssh_hint = f"ssh runpod-{name}" if status == "RUNNING" and name else ""
+        print(f"  {pod['id']:25s} {pod['name']:30s} {status:10s} {gpu:30s} {ssh_hint}")
+
+
+def _write_ssh_alias(name: str, ip: str, port: int) -> None:
+    """Replace any existing `Host runpod-<name>` block in ~/.ssh/config with a fresh one."""
+    alias = f"runpod-{name}"
+    block = (
+        f"\nHost {alias}\n"
+        f"    HostName {ip}\n"
+        f"    User root\n"
+        f"    Port {port}\n"
+        f"    IdentityFile {SSH_KEY}\n"
+        f"    StrictHostKeyChecking no\n"
+        f"    ServerAliveInterval {_SSH_ALIVE_INTERVAL}\n"
+        f"    ServerAliveCountMax {_SSH_ALIVE_COUNT_MAX}\n"
+    )
+    cfg_path = os.path.expanduser("~/.ssh/config")
+    if not os.path.exists(cfg_path):
+        os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+        with open(cfg_path, "w") as f:
+            f.write(block.lstrip("\n"))
+        return
+
+    with open(cfg_path) as f:
+        lines = f.readlines()
+
+    out: list[str] = []
+    in_target_block = False
+    for ln in lines:
+        stripped = ln.strip()
+        if stripped.startswith("Host "):
+            in_target_block = stripped == f"Host {alias}"
+            if not in_target_block:
+                out.append(ln)
+            continue
+        if not in_target_block:
+            out.append(ln)
+
+    body = "".join(out).rstrip()
+    body = body + "\n" + block if body else block.lstrip("\n")
+    with open(cfg_path, "w") as f:
+        f.write(body)
+
+
+def refresh_ssh(pod_name: str) -> None:
+    """Look up pod by name and refresh its ~/.ssh/config alias with current IP/port.
+
+    Useful after a pause/resume cycle when RunPod assigns a fresh public SSH endpoint —
+    saves the agent from having to manually edit ~/.ssh/config (and from being denied
+    when permission rules treat `status` queries as resume attempts).
+    """
+    pods = runpod.get_pods()
+    matches = [p for p in pods if p.get("name") == pod_name]
+    if not matches:
+        print(f"ERROR: no pod named {pod_name!r}.")
+        sys.exit(2)
+    if len(matches) > 1:
+        ids = [p["id"] for p in matches]
+        print(f"ERROR: multiple pods named {pod_name!r}: {ids}. Refresh by ID is not supported — rename one.")
+        sys.exit(2)
+    pod = matches[0]
+    pod_id = pod["id"]
+    status = pod.get("desiredStatus", "UNKNOWN")
+    if status != "RUNNING":
+        print(f"ERROR: pod {pod_name} ({pod_id}) is {status}, not RUNNING. Resume first, then refresh-ssh.")
+        sys.exit(2)
+    ip, port = get_ssh_info(pod_id)
+    if not ip:
+        print(f"ERROR: pod {pod_id} has no public SSH endpoint yet. Wait ~30s after resume and retry.")
+        sys.exit(2)
+    _write_ssh_alias(pod_name, ip, port)
+    print(f"Updated ~/.ssh/config: runpod-{pod_name} → {ip}:{port}")
 
 
 def pause_pod(pod_id: str):
@@ -314,10 +390,18 @@ def resume_pod(pod_id: str, gpu_count: int = 1):
     runpod.resume_pod(pod_id, gpu_count=gpu_count)
     print("Pod resume requested. Waiting for SSH...")
     ip, port = wait_for_ssh(pod_id)
-    if ip:
-        print(f"Pod is ready! SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
-    else:
+    if not ip:
         print("Timed out waiting for pod. Check RunPod dashboard.")
+        return
+    pods = runpod.get_pods()
+    match = next((p for p in pods if p["id"] == pod_id), None)
+    name = match.get("name") if match else None
+    if name:
+        _write_ssh_alias(name, ip, port)
+        print(f"Pod is ready! SSH: ssh runpod-{name}")
+    else:
+        print(f"Pod is ready! SSH: ssh root@{ip} -p {port} -i {SSH_KEY}")
+        print("  (No pod name found — couldn't auto-write SSH alias.)")
 
 
 def setup_status(pod_id: str):
@@ -422,6 +506,9 @@ def main():
     wait.add_argument("--timeout", type=int, default=900, help="Timeout in seconds (default: 900)")
     wait.add_argument("--poll-interval", type=int, default=15, help="Poll interval in seconds (default: 15)")
 
+    refresh = sub.add_parser("refresh-ssh", help="Refresh ~/.ssh/config alias for a pod (after resume changes IP/port).")
+    refresh.add_argument("pod_name", help="Pod name (the SSH alias will be `runpod-<pod_name>`).")
+
     args = parser.parse_args()
 
     if args.command == "config":
@@ -456,6 +543,8 @@ def main():
         setup_status(args.pod_id)
     elif args.command == "wait-setup":
         wait_for_setup(args.pod_id, timeout=args.timeout, poll_interval=args.poll_interval)
+    elif args.command == "refresh-ssh":
+        refresh_ssh(args.pod_name)
     else:
         parser.print_help()
 
