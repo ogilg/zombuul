@@ -1,6 +1,7 @@
 ---
 name: zombuul:pause-runpod
 description: "Pause a RunPod pod: stop GPU billing; keep /workspace only (container disk is wiped on resume)."
+argument-hint: "[pod-name]"
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion
 ---

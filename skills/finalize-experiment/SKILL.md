@@ -5,6 +5,7 @@ description: >
   spawn report review, commit and push. Argument $ARGUMENTS — `<spec_path> [--pod <pod_name>]`.
   Invoked automatically by `/zombuul:babysit --on-complete` when a long-running job finishes,
   or directly by you when an experiment doesn't use a babysitter (no pod, no cron).
+argument-hint: <spec-path> [--pod <pod-name>]
 user-invocable: true
 ---
 

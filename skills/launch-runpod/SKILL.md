@@ -4,6 +4,7 @@ description: >
   Spin up a RunPod GPU pod. Argument $ARGUMENTS — optional pod name, optionally
   followed by `--remote` to install Claude Code + zombuul plugin on the pod
   (needed when the pod itself will run an agent, not just receive SSH commands).
+argument-hint: "[pod-name] [--remote] [--disk-gb N] [--volume-gb N]"
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion, Read, Edit, Skill
 ---

@@ -1,6 +1,7 @@
 ---
 name: zombuul:resume-runpod
 description: Resume a paused RunPod pod.
+argument-hint: "[pod-name]"
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion
 ---
