@@ -4,7 +4,7 @@ description: >
   Provision a RunPod pod: wait for setup, configure SSH, sync .env and data.
   Argument $ARGUMENTS — JSON with keys: pod_id, pod_name, ip, port, and optionally spec_path and data_dirs.
 user-invocable: true
-allowed-tools: Bash, AskUserQuestion, Read, Edit, Agent
+allowed-tools: Bash, AskUserQuestion, Read, Agent
 ---
 
 Provision a RunPod pod after creation. Handles SSH config, waits for setup to complete, and syncs project files.
@@ -26,15 +26,7 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
 1. **Parse arguments**: Parse the JSON from `$ARGUMENTS`. Validate that `pod_id`, `pod_name`, `ip`, and `port` are present.
 
-2. **Update SSH config**: Add a `Host runpod-<pod_name>` alias to `~/.ssh/config`. Use the Edit tool to append this block to the end of the file:
-   ```
-   Host runpod-<pod_name>
-       HostName <ip>
-       User root
-       Port <port>
-       IdentityFile <ssh_key from ~/.claude/zombuul.yaml or default ~/.ssh/id_ed25519>
-       StrictHostKeyChecking no
-   ```
+2. **SSH alias**: the `Host runpod-<pod_name>` alias is already written to `~/.ssh/config` by `runpod_ctl.py create` (called from `/zombuul:launch-runpod`). Verify with `ssh -o ConnectTimeout=5 runpod-<pod_name> 'echo ok'`. If the alias is missing or stale (rare — happens when the pod was created outside zombuul, or its IP/port changed after a manual pause/resume), run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py refresh-ssh <pod_name>` to refresh it.
 
 3. **Phase A — concurrent setup + early sync**: Launch all of the following concurrently using `run_in_background`, then wait for ALL to complete before proceeding to Phase B:
 
@@ -46,9 +38,11 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
    Launch all of the following concurrently using `run_in_background`, then wait for all to complete:
 
-   - **Sync .env to repo** (if `.env` exists in current working directory): `rsync -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
-   - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && rsync -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
-   - **Sync data directories** (one per directory from `data_dirs`): `rsync -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
+   - **Sync .env to repo** (if `.env` exists in current working directory): `bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az --no-owner --no-group .env runpod-<pod_name>:/workspace/repo/.env`
+   - **Sync experiment spec** (if `spec_path` provided): `ssh runpod-<pod_name> 'mkdir -p /workspace/repo/<spec_parent_dir>' && bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az --no-owner --no-group <spec_path> runpod-<pod_name>:/workspace/repo/<spec_path>`
+   - **Sync data directories** (one per directory from `data_dirs`): `bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az --no-owner --no-group <local_dir>/ runpod-<pod_name>:/workspace/repo/<remote_dir>/` — note trailing slashes to copy contents.
+
+   Each `safe_rsync.sh` invocation prints a final line `[safe_rsync] EXIT=<code> FILES=<n>` (regardless of `| tail`). Verify each sync's `EXIT=0` and check `FILES`. A non-zero exit means the sync failed; `FILES=0` on a first-time sync of a non-empty source means the source path is wrong or empty.
 
 5. **Report**: Once all background tasks complete, report:
    - SSH command: `ssh runpod-<pod_name>`

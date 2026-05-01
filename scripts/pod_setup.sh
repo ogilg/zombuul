@@ -137,7 +137,7 @@ if [ "$INSTALL_CLAUDE" = "true" ]; then
     install_zombuul() {
         # Remove stale marketplace if present (idempotent re-install)
         claude plugin marketplace remove ogilg-marketplace 2>/dev/null || true
-        claude plugin marketplace add ogilg/zombuul || return 1
+        claude plugin marketplace add oscar-gilg/zombuul || return 1
         claude plugin install zombuul@ogilg-marketplace || return 1
     }
     retry "install zombuul plugin" 3 10 install_zombuul
