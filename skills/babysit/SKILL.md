@@ -18,7 +18,7 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and either p
 
 `$ARGUMENTS` is `<pod_name> <description> [--on-complete "<prompt>"]`.
 
-- `<pod_name>` (first whitespace-delimited token, required) — must match an SSH alias `runpod-<pod_name>`.
+- `<pod_name>` (first whitespace-delimited token, required) — the pod name. The SSH alias is `runpod-<pod_name>`; strip a leading `runpod-` if the caller passed the alias verbatim (`runpod-foo` → `foo`).
 - `<description>` (required) — natural-language description of what's running and how to tell when it's done. Used as the body of the cron's progress reporting.
 - `--on-complete "<prompt>"` (optional) — a self-contained prompt to fire when the job finishes cleanly. Most often `/zombuul:finalize-experiment <spec_path> --pod <pod_name>`. When set, babysit does NOT pause the pod itself — the on-complete prompt is responsible for syncing results, pausing, etc. When not set, babysit pauses the pod itself on completion.
 
@@ -26,7 +26,7 @@ To parse: `--on-complete` is followed by a quoted string. Everything between the
 
 ## Process
 
-1. **Parse arguments.** Split out `pod_name`, `description`, and optional `on_complete`. If pod_name or description is empty, show usage and stop.
+1. **Parse arguments.** Split out `pod_name`, `description`, and optional `on_complete`. Strip a leading `runpod-` from `pod_name` if present. If pod_name or description is empty, show usage and stop.
 
 2. **Snapshot the running command and its tmux session.** SSH to the pod and capture both:
    ```
@@ -34,7 +34,7 @@ To parse: `--on-complete` is followed by a quoted string. Everything between the
    ```
    Save this output — it goes into the cron prompt so the babysitter agent knows the session name and exact command to restart.
 
-3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template (omit the `--on-complete` block if not provided):
+3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. For jobs >1 hour, also pass `durable: true` so the cron survives Claude session restarts (still requires Claude to be running and idle to fire — for fully unattended overnight runs, use `--remote` mode in `/zombuul:run-experiment` instead). The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template (omit the `--on-complete` block if not provided):
 
    ```
    You are babysitting a GPU job on pod "{pod_name}" (SSH: `runpod-{pod_name}`).
