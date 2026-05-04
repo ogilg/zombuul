@@ -4,8 +4,8 @@
   "description": "Run experiments on GPU pods from local Claude Code",
   "author": {
     "name": "Oscar Gilg",
-    "url": "https://github.com/ogilg"
+    "url": "https://github.com/oscar-gilg"
   },
-  "repository": "https://github.com/ogilg/zombuul",
+  "repository": "https://github.com/oscar-gilg/zombuul",
   "license": "MIT"
 }
