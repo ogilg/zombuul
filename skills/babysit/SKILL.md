@@ -3,12 +3,14 @@ name: zombuul:babysit
 description: >
   Monitor a long-running job on a RunPod GPU pod. Checks every 5 min, restarts on crash, and either
   pauses the pod or fires a follow-up prompt when done.
-  Argument $ARGUMENTS — `<pod_name> <description> [--on-complete "<prompt>"]`.
+  Argument $ARGUMENTS — `<pod_name> <description> [--launch-cmd "<cmd>"] [--on-complete "<prompt>"]`.
   Use when a GPU job is expected to take >10 min and may crash (I/O errors, OOM, SSH timeouts).
-  The description should say what's running and how to tell when it's done. Pass `--on-complete`
-  to chain the next step (e.g. `/zombuul:finalize-experiment <spec> --pod <name>`) so the workflow
-  resumes automatically when the job finishes.
-argument-hint: <pod-name> <description> [--on-complete "<prompt>"]
+  The description should say what's running and how to tell when it's done. Pass `--launch-cmd`
+  to give the cron the exact command to restart on crash (otherwise it reverse-engineers from
+  `ps aux` which loses the bash/venv wrapper). Pass `--on-complete` to chain the next step
+  (e.g. `/zombuul:finalize-experiment <spec> --pod <name>`) so the workflow resumes automatically
+  when the job finishes.
+argument-hint: <pod-name> <description> [--launch-cmd "<cmd>"] [--on-complete "<prompt>"]
 user-invocable: true
 ---
 
@@ -16,31 +18,33 @@ Monitor a long-running GPU job on a RunPod pod, restarting on crash and either p
 
 ## Arguments
 
-`$ARGUMENTS` is `<pod_name> <description> [--on-complete "<prompt>"]`.
+`$ARGUMENTS` is `<pod_name> <description> [--launch-cmd "<cmd>"] [--on-complete "<prompt>"]`.
 
-- `<pod_name>` (first whitespace-delimited token, required) — must match an SSH alias `runpod-<pod_name>`.
+- `<pod_name>` (first whitespace-delimited token, required) — the pod name. The SSH alias is `runpod-<pod_name>`. **Strip a leading `runpod-` if the caller passed it as part of the pod name** (`runpod-foo` → `foo`); this is a common footgun because the alias is what's in `~/.ssh/config`.
 - `<description>` (required) — natural-language description of what's running and how to tell when it's done. Used as the body of the cron's progress reporting.
+- `--launch-cmd "<cmd>"` (optional) — the exact shell command to use when restarting the job after a crash. Without this, the cron snapshot from `ps aux | grep python` only captures the python invocation, losing any `bash -lc "source venv/bin/activate && ..."` wrapper. Pass the full launch command (typically what was used inside `tmux new-session -d -s <session> '<cmd>'`) so the restart path is identical to the original launch.
 - `--on-complete "<prompt>"` (optional) — a self-contained prompt to fire when the job finishes cleanly. Most often `/zombuul:finalize-experiment <spec_path> --pod <pod_name>`. When set, babysit does NOT pause the pod itself — the on-complete prompt is responsible for syncing results, pausing, etc. When not set, babysit pauses the pod itself on completion.
 
-To parse: `--on-complete` is followed by a quoted string. Everything between the quotes after `--on-complete` is the on-complete prompt; everything before `--on-complete` (after the pod name) is the description.
+To parse: `--launch-cmd` and `--on-complete` are each followed by a quoted string. The quoted string is the value of that flag. Everything not consumed by these flags (after the pod name) is the description.
 
 ## Process
 
-1. **Parse arguments.** Split out `pod_name`, `description`, and optional `on_complete`. If pod_name or description is empty, show usage and stop.
+1. **Parse arguments.** Split out `pod_name`, `description`, and optional `launch_cmd` and `on_complete`. **Normalize `pod_name`: strip a leading `runpod-` if present** so `runpod-foo` and `foo` both resolve to `foo`. If pod_name or description is empty, show usage and stop.
 
 2. **Snapshot the running command and its tmux session.** SSH to the pod and capture both:
    ```
    ssh runpod-<pod_name> 'tmux list-sessions 2>/dev/null; ps aux | grep python | grep -v grep'
    ```
-   Save this output — it goes into the cron prompt so the babysitter agent knows the session name and exact command to restart.
+   Save this output — it goes into the cron prompt so the babysitter agent knows the session name and (as a fallback if `--launch-cmd` was not provided) the running command.
 
-3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template (omit the `--on-complete` block if not provided):
+3. **Create the cron job.** Use `CronCreate` with cron `*/5 * * * *` (every 5 min), recurring: true. For jobs expected to take >1 hour, also pass `durable: true` so the cron survives Claude session restarts (still requires Claude to be running and idle to fire — durable does not work around an offline laptop; for genuinely-overnight autonomous runs use `--remote` mode in `/zombuul:run-experiment` instead). The prompt must be **completely self-contained** — the cron agent has no conversation history. Build it from this template (omit the `--launch-cmd` and `--on-complete` blocks if not provided):
 
    ```
    You are babysitting a GPU job on pod "{pod_name}" (SSH: `runpod-{pod_name}`).
 
    **What's running:** {description}
    **Last known command:** {snapshot from step 2}
+   {if launch_cmd: **Restart command (use this verbatim on crash):** {launch_cmd}}
    {if on_complete: **On completion, fire this prompt:** {on_complete}}
 
    ## Check
@@ -55,7 +59,7 @@ To parse: `--on-complete` is followed by a quoted string. Everything between the
       a. Check logs: `ssh runpod-{pod_name} 'tail -30 /workspace/repo/<likely_log_path>'`
       b. Diagnose (OOM? I/O error? disk full per step 2? completed successfully?).
       c. If completed successfully → go to step 5.
-      d. If crashed → restart using the last known command above inside a new tmux session (`tmux new-session -d -s <session> '<cmd>'`). Report what happened.
+      d. If crashed → restart inside a new tmux session. Use the **Restart command** verbatim if provided (`tmux new-session -d -s <session> '<launch_cmd>'`); otherwise reconstruct from the snapshot in **Last known command** (note: `ps aux` snapshots only show the python process, missing any `bash -lc "source venv/bin/activate && ..."` wrapper — best-effort). Report what happened.
 
    5. **If done** (all expected outputs exist per the description):
       a. Report completion (one line + total runtime if you can derive it).
