@@ -1,6 +1,6 @@
 {
-  "total_clones": 3877,
-  "total_uniques": 720,
+  "total_clones": 4017,
+  "total_uniques": 740,
   "days": {
     "2026-04-08T00:00:00Z": {
       "count": 0,
@@ -116,6 +116,14 @@
     },
     "2026-05-06T00:00:00Z": {
       "count": 10,
+      "uniques": 5
+    },
+    "2026-05-07T00:00:00Z": {
+      "count": 135,
+      "uniques": 15
+    },
+    "2026-05-08T00:00:00Z": {
+      "count": 5,
       "uniques": 5
     }
   }
