@@ -18,7 +18,7 @@ Run these checks before launching anything. Abort with a clear message if any fa
 1. **API key present**: Check that `RUNPOD_API_KEY` is set in either `.env` (in the current working directory) or `~/.claude/.env`.
    - If missing: stop. Tell the user to run `/zombuul:setup` first.
 
-2. **Scripts importable**: Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py --help` and confirm exit code 0.
+2. **Scripts importable**: Run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py --help` and confirm exit code 0.
    - If non-zero: stop. The likely cause is a missing `runpod` Python package or a broken script. Tell the user to re-run `/zombuul:setup`.
 
 3. **SSH key present**: Read `ssh_key` path from `~/.claude/zombuul.yaml` (default `~/.ssh/id_ed25519`). Confirm the file exists.
@@ -34,7 +34,7 @@ Spawn three subagents in parallel using the Agent tool (`subagent_type="general-
 
 Prompt:
 
-> Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus` and capture stdout.
+> Run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus` and capture stdout.
 >
 > **Pass criterion**: command exits 0 AND the output lists at least one GPU type (look for substring patterns like "RTX" or "A100" or "H100" or a non-empty line that looks like a GPU id).
 >
@@ -44,7 +44,7 @@ Prompt:
 
 Prompt:
 
-> Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list` and capture stdout.
+> Run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list` and capture stdout.
 >
 > **Pass criterion**: command exits 0. Output is allowed to say "no pods running" or list pods — either is fine.
 >
@@ -61,22 +61,22 @@ Prompt:
 > 1. Read `~/.claude/zombuul.yaml` for default GPU type. If a `gpu_type` field is set, use it. Otherwise call `runpod_ctl.py gpus` and pick the cheapest GPU type (lowest `$/hr`).
 >
 > 2. Create the pod:
->    `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <smoke_pod_name> --gpu <gpu_type>`.
+>    `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <smoke_pod_name> --gpu <gpu_type>`.
 >    Capture the pod_id from the output.
 >
 > 3. Wait for setup:
->    `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id> --timeout 600`.
+>    `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id> --timeout 600`.
 >
 > 4. Run the GPU sanity check over SSH:
 >    `ssh runpod-<smoke_pod_name> 'nvidia-smi --query-gpu=name --format=csv,noheader'`.
 >    Capture the output.
 >
 > 5. Pause the pod:
->    `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py pause <pod_id>`.
+>    `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py pause <pod_id>`.
 >
 > **Pass criterion**: step 4 returns a non-empty GPU name AND step 5 exits 0.
 >
-> **Cleanup on failure**: if any step fails, attempt `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py pause <pod_id>` (idempotent — pause is safe even mid-setup). If pause also fails, attempt `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Report any leaked pods in the failure message.
+> **Cleanup on failure**: if any step fails, attempt `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py pause <pod_id>` (idempotent — pause is safe even mid-setup). If pause also fails, attempt `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Report any leaked pods in the failure message.
 >
 > Report a single-line result: `C (pod e2e) PASS — <gpu_name>, paused as <smoke_pod_name>` or `C (pod e2e) FAIL — <step> — <reason>`. Include any leaked-pod warning.
 
@@ -91,15 +91,21 @@ Run in the main session — subagents can't invoke skills recursively. Slow tail
 The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zombuul itself.
 
 1. Save the current cwd. Clone `oscar-gilg/zombuul-smoke-bed` into a fresh tmp dir and cd in.
-2. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. Capture the PR number when run-experiment announces it.
-3. Wait for it to return.
-4. **Verify**: from inside the worktree, run `python experiments/smoke_e2e/verify.py experiments/smoke_e2e/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
-5. **Always run cleanup, even if verification failed.** Idempotent:
+2. Rename the experiment dir to include a timestamp so each run has a unique branch/PR on the fixture repo:
+   ```
+   NAME=smoke_e2e_$(date +%Y%m%d_%H%M%S)
+   mv experiments/smoke_e2e experiments/$NAME
+   mv experiments/$NAME/smoke_e2e_spec.md experiments/$NAME/${NAME}_spec.md
+   ```
+3. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/$NAME/${NAME}_spec.md"`. Capture the PR number when run-experiment announces it.
+4. Wait for it to return.
+5. **Verify**: from inside the worktree, run `experiments/$NAME/verify.py experiments/$NAME/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
+6. **Always run cleanup, even if verification failed.** Idempotent:
    - `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
    - `git push origin --delete <branch>` from inside the clone.
    - `ExitWorktree`.
-   - `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Get pod_id from the experiment's running_log.
-6. Return to the saved cwd and remove the tmp dir.
+   - `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Get pod_id from the experiment's running_log.
+7. Return to the saved cwd and remove the tmp dir.
 
 **Pass criterion**: results.json verifies AND PR was opened+marked-ready AND cleanup succeeded.
 

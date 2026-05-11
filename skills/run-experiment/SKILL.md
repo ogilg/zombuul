@@ -72,7 +72,7 @@ When the subagent returns, show the user the spec path and summary. Ask: "Want m
    - Return the commands as a newline-separated list, nothing else.
 
    **b) Infrastructure agent** (only if GPU needed) — checks for running pods and determines what infrastructure is available. The agent should:
-   - Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`
+   - Run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`
    - If a suitable pod is already running, return its name and connection details
    - If no suitable pod exists, return that a new pod is needed (do NOT launch one yet — the main agent will invoke `/zombuul:launch-runpod` after entering the worktree)
 
@@ -107,8 +107,8 @@ You are **not** running the experiment — you are setting up a pod that will ru
 
 ### R2: Pod setup
 
-1. **Reuse or create**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, **size the pod from the spec** (see [Sizing a pod from the spec](#sizing-a-pod-from-the-spec)) and invoke `/zombuul:launch-runpod <pod_name> --remote --disk-gb <N> --volume-gb <N>` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
-2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
+1. **Reuse or create**: `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, **size the pod from the spec** (see [Sizing a pod from the spec](#sizing-a-pod-from-the-spec)) and invoke `/zombuul:launch-runpod <pod_name> --remote --disk-gb <N> --volume-gb <N>` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
+2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
 
 ### R3: Launch the on-pod agent
 
