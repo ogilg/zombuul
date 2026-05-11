@@ -246,18 +246,11 @@ else
 fi
 
 # --- git identity ---
+# Set a generic pod identity so on-pod commits work. Real attribution is
+# established via Co-Authored-By trailers in commit messages anyway.
 
-if [ -f "$REPO_DIR/.env" ]; then
-    GIT_USER_NAME=$(grep '^GIT_USER_NAME=' "$REPO_DIR/.env" | cut -d= -f2-)
-    GIT_USER_EMAIL=$(grep '^GIT_USER_EMAIL=' "$REPO_DIR/.env" | cut -d= -f2-)
-fi
-if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then
-    echo "FATAL: GIT_USER_NAME and/or GIT_USER_EMAIL missing or empty in $REPO_DIR/.env."
-    echo "       Without these, the pod's git commits will fail with 'Author identity unknown' mid-experiment."
-    exit 1
-fi
-git config --global user.name "$GIT_USER_NAME"
-git config --global user.email "$GIT_USER_EMAIL"
+git config --global user.name "zombuul-pod"
+git config --global user.email "pod@zombuul.local"
 
 # --- auth (tokens passed via environment) ---
 
