@@ -104,10 +104,11 @@ def ssh_run(ip: str, port: int, command: str | list[str], **kwargs) -> subproces
 def get_pod_env() -> dict[str, str]:
     """Collect tokens + git identity for the pod from environment, project .env, and ~/.claude/.env.
 
-    GIT_USER_NAME / GIT_USER_EMAIL also fall back to `git config --global user.{name,email}`
+    GIT_USER_NAME / GIT_USER_EMAIL also fall back to `git config user.{name,email}`
     so the user's real git identity gets forwarded to the pod without requiring
-    them to duplicate it into .env. pod_setup.sh runs `git config` with these
-    before the experiment can make commits.
+    them to duplicate it into .env. `git config` (no --global) uses git's normal
+    precedence: repo-local → global → system, so per-repo identity is respected
+    when zombuul is invoked from inside a git repo.
     """
     load_dotenv()  # load project .env into os.environ (no-op for already-set vars)
     load_dotenv(os.path.expanduser("~/.claude/.env"))  # global .env (no-op for already-set vars)
@@ -116,7 +117,7 @@ def get_pod_env() -> dict[str, str]:
         if git_key not in env:
             try:
                 result = subprocess.run(
-                    ["git", "config", "--global", config_key],
+                    ["git", "config", config_key],
                     capture_output=True, text=True, timeout=5,
                 )
                 if result.returncode == 0 and result.stdout.strip():
