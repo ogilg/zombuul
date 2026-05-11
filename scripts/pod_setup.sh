@@ -252,7 +252,7 @@ fi
 
 if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then
     echo "FATAL: GIT_USER_NAME and/or GIT_USER_EMAIL not forwarded to the pod."
-    echo "       runpod_ctl.py reads these from env, .env, or 'git config --global user.{name,email}'."
+    echo "       runpod_ctl.py reads these from env, .env, or 'git config user.{name,email}' (repo/global/system)."
     echo "       Set one of those on the launching machine, or commits will fail with 'Author identity unknown' mid-experiment."
     exit 1
 fi
