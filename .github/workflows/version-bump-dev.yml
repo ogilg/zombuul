@@ -1,12 +1,11 @@
-name: Version Bump
+name: Version Bump (dev)
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
 
 jobs:
   bump:
-    # Skip on bump-merge commits to break the loop.
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     permissions:
@@ -19,16 +18,20 @@ jobs:
           token: ${{ secrets.PAT }}
           fetch-depth: 0
 
-      - name: Bump patch version
+      - name: Bump dev pre-release counter
         id: bump
         run: |
           NEW=$(python3 - <<'PY'
-          import json
+          import json, re, sys
           path = ".claude-plugin/plugin.json"
           with open(path) as f:
               d = json.load(f)
-          major, minor, patch = d["version"].split(".")
-          new = f"{major}.{minor}.{int(patch) + 1}"
+          v = d["version"]
+          m = re.match(r"^(\d+\.\d+\.\d+)-dev(?:\.(\d+))?$", v)
+          if not m:
+              sys.exit(f"unexpected dev version format: {v}")
+          base, n = m.group(1), m.group(2)
+          new = f"{base}-dev.{int(n) + 1 if n else 1}"
           d["version"] = new
           with open(path, "w") as f:
               json.dump(d, f, indent=2)
@@ -37,9 +40,9 @@ jobs:
           PY
           )
           echo "new_version=$NEW" >> "$GITHUB_OUTPUT"
-          echo "BRANCH=auto/bump-main-$NEW" >> "$GITHUB_ENV"
+          echo "BRANCH=auto/bump-dev-$NEW" >> "$GITHUB_ENV"
 
-      - name: Push branch, tag, open auto-merge PR
+      - name: Push branch, open auto-merge PR
         env:
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
@@ -47,12 +50,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add .claude-plugin/plugin.json
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
-          git tag "v${{ steps.bump.outputs.new_version }}"
+          git commit -m "chore: bump dev version to ${{ steps.bump.outputs.new_version }}"
           git push -u origin "$BRANCH"
-          git push origin "v${{ steps.bump.outputs.new_version }}"
-          gh pr create --base main --head "$BRANCH" \
-            --title "chore: bump version to ${{ steps.bump.outputs.new_version }}" \
-            --body "Auto-bump after merge to main."
+          gh pr create --base dev --head "$BRANCH" \
+            --title "chore: bump dev version to ${{ steps.bump.outputs.new_version }}" \
+            --body "Auto-bump for plugin cache busting on dev."
           gh pr merge "$BRANCH" --auto --merge \
-            --subject "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+            --subject "chore: bump dev version to ${{ steps.bump.outputs.new_version }} [skip ci]"
