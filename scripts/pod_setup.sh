@@ -16,7 +16,7 @@ set -o pipefail
 
 REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude] [extras]}"
 BRANCH="${2:-main}"
-PYTHON_VERSION="${3:-3.12}"
+PYTHON_VERSION="${3:-3.11}"
 INSTALL_CLAUDE="${4:-false}"
 EXTRAS="${5:-auto}"
 REPO_DIR="/workspace/repo"
@@ -50,7 +50,7 @@ retry() {
 # Import container env vars (not inherited when run via nohup over SSH)
 if [ -f /proc/1/environ ]; then
     # shellcheck disable=SC2046
-    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|RUNPOD_POD_ID)=')
+    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|RUNPOD_POD_ID|GIT_USER_NAME|GIT_USER_EMAIL)=')
 fi
 
 # Fallback: check for .env synced by provision-pod.
@@ -59,7 +59,7 @@ for envfile in "$REPO_DIR/.env" /tmp/.env; do
         echo "Found .env at $envfile — sourcing tokens."
         while IFS='=' read -r key value || [ -n "$key" ]; do
             case "$key" in
-                GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY)
+                GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|GIT_USER_NAME|GIT_USER_EMAIL)
                     value="${value%\"}"; value="${value#\"}"
                     value="${value%\'}"; value="${value#\'}"
                     export "$key=$value"
@@ -103,10 +103,23 @@ retry "install gh" 3 10 install_gh
 # Use gh CLI as credential helper instead of embedding token in URL.
 # Embedding the token in the URL triggers GitHub push protection on push.
 
-if [ -n "$GH_TOKEN" ]; then
-    echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && echo "Logged into GitHub (for git auth)." || echo "WARNING: gh login failed."
-    git config --global credential.helper '!gh auth git-credential'
+if [ -z "$GH_TOKEN" ]; then
+    echo "FATAL: GH_TOKEN is empty. Set GH_TOKEN in the repo's .env (or in /proc/1/environ) before launching."
+    echo "       Without it, gh auth login is skipped and any private clone / push will fail mid-experiment."
+    exit 1
 fi
+# gh CLI uses GH_TOKEN from env automatically when set; calling
+# `gh auth login --with-token` in that case errors out ("To have GitHub CLI
+# store credentials instead, first clear the value from the environment").
+# Verify auth works via env instead — the credential helper below uses gh's
+# auth regardless of whether it came from env or login store.
+if gh auth status >/dev/null 2>&1; then
+    echo "Logged into GitHub via GH_TOKEN env var."
+else
+    echo "FATAL: gh auth status failed despite GH_TOKEN being set — token may be invalid or expired."
+    exit 1
+fi
+git config --global credential.helper '!gh auth git-credential'
 
 # --- clone repo ---
 
@@ -172,6 +185,18 @@ mkdir -p /opt/venvs
 if [ ! -d /opt/venvs/research/bin ]; then
     retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
 fi
+# Fail loudly if the venv didn't get built — otherwise we silently activate
+# nothing and downstream `uv pip install` lands in the wrong interpreter.
+if [ ! -x /opt/venvs/research/bin/python ]; then
+    echo "FATAL: venv /opt/venvs/research not created. Requested Python $PYTHON_VERSION may be unavailable in this image."
+    echo "       Check defaults.yaml python_version vs. the docker_image's bundled Python."
+    exit 1
+fi
+ACTUAL_PY=$(/opt/venvs/research/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+if [ "$ACTUAL_PY" != "$PYTHON_VERSION" ]; then
+    echo "FATAL: venv built with Python $ACTUAL_PY, but $PYTHON_VERSION was requested."
+    exit 1
+fi
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
@@ -221,17 +246,18 @@ else
 fi
 
 # --- git identity ---
+# GIT_USER_NAME / GIT_USER_EMAIL are forwarded by runpod_ctl.py, which reads
+# them from the launching user's env / .env / `git config --global user.*`.
+# So on-pod commits are attributed to the real human, not a generic pod user.
 
-if [ -f "$REPO_DIR/.env" ]; then
-    GIT_USER_NAME=$(grep '^GIT_USER_NAME=' "$REPO_DIR/.env" | cut -d= -f2-)
-    GIT_USER_EMAIL=$(grep '^GIT_USER_EMAIL=' "$REPO_DIR/.env" | cut -d= -f2-)
+if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then
+    echo "FATAL: GIT_USER_NAME and/or GIT_USER_EMAIL not forwarded to the pod."
+    echo "       runpod_ctl.py reads these from env, .env, or 'git config user.{name,email}' (repo/global/system)."
+    echo "       Set one of those on the launching machine, or commits will fail with 'Author identity unknown' mid-experiment."
+    exit 1
 fi
-if [ -n "$GIT_USER_NAME" ]; then
-    git config --global user.name "$GIT_USER_NAME"
-fi
-if [ -n "$GIT_USER_EMAIL" ]; then
-    git config --global user.email "$GIT_USER_EMAIL"
-fi
+git config --global user.name "$GIT_USER_NAME"
+git config --global user.email "$GIT_USER_EMAIL"
 
 # --- auth (tokens passed via environment) ---
 

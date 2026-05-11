@@ -92,7 +92,7 @@ The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zomb
 
 **Adaptation notes** (smoke-test specific — these are NOT how a real experiment would run):
 
-- The Claude Code session's cwd is fixed to the user's dev repo (e.g. `/Users/oscargilg/Dev/zombuul`), not the smoke-bed clone. `EnterWorktree` operates on the session's git repo and would create a worktree of zombuul, not smoke-bed.
+- The Claude Code session's cwd is fixed to the user's dev repo (e.g. `~/Dev/zombuul`), not the smoke-bed clone. `EnterWorktree` operates on the session's git repo and would create a worktree of zombuul, not smoke-bed.
 - So: clone smoke-bed to a fixed absolute path (`/tmp/zombuul-smoke/zombuul-smoke-bed`), **skip `EnterWorktree`** (the clone is already an isolated workspace), and chain `cd /tmp/zombuul-smoke/zombuul-smoke-bed && ...` in every Bash call (cwd doesn't persist between Bash calls). Pass an **absolute spec path** to `/zombuul:run-experiment`.
 - When `/zombuul:run-experiment` tells you to use `EnterWorktree`, ignore it and work directly in the clone.
 - `pod_setup.sh` on the pod will clone the user's dev repo (it reads the caller's cwd git origin). That's fine here: the smoke test never reads the cloned repo on the pod, it just `scp`s `scripts/$NAME/forward.py` over.
