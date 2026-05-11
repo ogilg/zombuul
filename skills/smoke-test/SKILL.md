@@ -1,12 +1,12 @@
 ---
 name: zombuul:smoke-test
 description: >
-  End-to-end smoke test of zombuul. Runs pre-flight checks, then spawns 3 parallel
-  agents that exercise API connectivity, pod listing, and full pod lifecycle (launch,
-  SSH, GPU sanity check, pause). Use before publishing a release. Takes ~5–10 minutes
-  and costs roughly $0.05 in RunPod GPU time.
+  End-to-end smoke test of zombuul. Pre-flight, then 3 parallel agents (API, pod list,
+  full pod lifecycle), then a serial e2e step that runs /zombuul:run-experiment on a
+  tiny canned spec to exercise the orchestration + PR flow. Use before publishing a
+  release. Takes ~10–15 minutes and costs roughly $0.10 in RunPod GPU time.
 user-invocable: true
-allowed-tools: Bash, Agent, Read
+allowed-tools: Bash, Agent, Read, Skill
 ---
 
 Run a pre-release smoke test of zombuul. Goal: confirm the basic plumbing (API key, scripts, pod lifecycle) still works end-to-end before shipping to other users. Not a substitute for real testing — but catches the obvious "everything is broken" cases in under 10 minutes.
@@ -80,19 +80,44 @@ Prompt:
 >
 > Report a single-line result: `C (pod e2e) PASS — <gpu_name>, paused as <smoke_pod_name>` or `C (pod e2e) FAIL — <step> — <reason>`. Include any leaked-pod warning.
 
-## Wait, then report
+## Wait for parallel agents
 
-Wait for all three agents to complete. Print a summary block:
+Wait for A, B, C to complete. Capture their pass/fail results for the final summary; don't print yet — the E step still needs to run.
+
+## E (experiment e2e, serial, in this session)
+
+Now run the orchestration + PR flow check, in the main session (not as a subagent — so the recursive `/zombuul:run-experiment` call uses normal skill machinery). This is the slow tail: ~5–8 min.
+
+1. **Capture base branch**: `BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD)`. The PR will target this branch.
+2. **Invoke the experiment**: call the `Skill` tool with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. The spec at that path drives a tiny gpt-2 forward pass; it lives in the zombuul repo as a test fixture.
+3. **Wait for it to return.** Run-experiment will: create a worktree, push the branch, open a draft PR against $BASE_BRANCH, spin up a cheap GPU pod, run the forward pass via SSH, sync results back, finalize, mark the PR ready.
+4. **Verify**:
+   - `experiments/smoke_e2e/results.json` exists. Read it. Check `no_nans == true`, `logits_norm > 0`, `device` starts with `cuda`, `predicted_token_id` is a positive integer.
+   - A PR exists for the experiment branch and is **not** in draft state: `gh pr list --head <branch> --json number,isDraft -q '.[0]'` returns `isDraft: false`.
+5. **Cleanup** (in this order, do not skip on failures — each is idempotent):
+   - Close the PR without merging: `gh pr close <num>` (this is a test fixture, never merge).
+   - Delete the remote branch: `git push origin --delete <branch>`.
+   - Exit the worktree if still active (`ExitWorktree` if the EnterWorktree session is still alive).
+   - Terminate the pod used by the experiment (find its pod_id from the running-log or `runpod_ctl.py list`): `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`.
+
+**Pass criterion**: results.json verifies AND PR was opened+marked-ready AND cleanup succeeded.
+
+If E fails partway and leaks a pod/branch/PR, call this out loudly in the final summary so the user can clean up manually.
+
+## Final report
+
+Print:
 
 ```
 Zombuul smoke test results:
   A (API)      PASS/FAIL — ...
   B (list)     PASS/FAIL — ...
   C (pod e2e)  PASS/FAIL — ...
+  E (run-experiment e2e)  PASS/FAIL — ...
 
 Overall: PASS/FAIL
 ```
 
-If any test failed AND the failure looks like a zombuul bug (not a user-environment issue), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` to file an issue before ending.
+If any step looks like a zombuul bug (not user-environment), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
 
-If C left a pod running (cleanup couldn't pause it), call this out loudly in the final report so the user can terminate it manually.
+If anything was leaked (pod still running, PR still open, branch still on origin), call it out explicitly with the cleanup commands so the user can finish manually.
