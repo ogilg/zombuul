@@ -1,12 +1,12 @@
 ---
 name: zombuul:smoke-test
 description: >
-  End-to-end smoke test of zombuul. Runs pre-flight checks, then spawns 3 parallel
-  agents that exercise API connectivity, pod listing, and full pod lifecycle (launch,
-  SSH, GPU sanity check, pause). Use before publishing a release. Takes ~5–10 minutes
-  and costs roughly $0.05 in RunPod GPU time.
+  End-to-end smoke test of zombuul. Pre-flight, then 3 parallel agents (API, pod list,
+  full pod lifecycle), then a serial e2e step that runs /zombuul:run-experiment on a
+  tiny canned spec to exercise the orchestration + PR flow. Use before publishing a
+  release. Takes ~10–15 minutes and costs roughly $0.10 in RunPod GPU time.
 user-invocable: true
-allowed-tools: Bash, Agent, Read
+allowed-tools: Bash, Agent, Read, Skill
 ---
 
 Run a pre-release smoke test of zombuul. Goal: confirm the basic plumbing (API key, scripts, pod lifecycle) still works end-to-end before shipping to other users. Not a substitute for real testing — but catches the obvious "everything is broken" cases in under 10 minutes.
@@ -80,19 +80,43 @@ Prompt:
 >
 > Report a single-line result: `C (pod e2e) PASS — <gpu_name>, paused as <smoke_pod_name>` or `C (pod e2e) FAIL — <step> — <reason>`. Include any leaked-pod warning.
 
-## Wait, then report
+## Wait for parallel agents
 
-Wait for all three agents to complete. Print a summary block:
+Wait for A, B, C to complete. Capture their pass/fail results for the final summary; don't print yet — the E step still needs to run.
+
+## E (experiment e2e, serial, in this session)
+
+Run in the main session — subagents can't invoke skills recursively. Slow tail: ~5–8 min.
+
+The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zombuul itself.
+
+1. Save the current cwd. Clone `oscar-gilg/zombuul-smoke-bed` into a fresh tmp dir and cd in.
+2. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. Capture the PR number when run-experiment announces it.
+3. Wait for it to return.
+4. **Verify**: from inside the worktree, run `python experiments/smoke_e2e/verify.py experiments/smoke_e2e/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
+5. **Always run cleanup, even if verification failed.** Idempotent:
+   - `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
+   - `git push origin --delete <branch>` from inside the clone.
+   - `ExitWorktree`.
+   - `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Get pod_id from the experiment's running_log.
+6. Return to the saved cwd and remove the tmp dir.
+
+**Pass criterion**: results.json verifies AND PR was opened+marked-ready AND cleanup succeeded.
+
+## Final report
+
+Print:
 
 ```
 Zombuul smoke test results:
   A (API)      PASS/FAIL — ...
   B (list)     PASS/FAIL — ...
   C (pod e2e)  PASS/FAIL — ...
+  E (experiment e2e)  PASS/FAIL — ...
 
 Overall: PASS/FAIL
 ```
 
-If any test failed AND the failure looks like a zombuul bug (not a user-environment issue), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` to file an issue before ending.
+If any step looks like a zombuul bug (not user-environment), follow `${CLAUDE_PLUGIN_ROOT}/REPORTING_BUGS.md` before ending.
 
-If C left a pod running (cleanup couldn't pause it), call this out loudly in the final report so the user can terminate it manually.
+If anything was leaked (pod still running, PR still open, branch still on origin), call it out explicitly with the cleanup commands so the user can finish manually.
