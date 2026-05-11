@@ -82,7 +82,7 @@ Ask whether the user has a custom RunPod template. If yes, collect the template 
 
 Run this command to verify the RunPod API key works:
 ```bash
-python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus
+${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus
 ```
 
 If it fails, debug from the error output. Note that the env var can live in `.env` (cwd) or `~/.claude/.env` — confirm the file actually used was picked up.

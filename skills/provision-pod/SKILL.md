@@ -27,11 +27,11 @@ Provision a RunPod pod after creation. Handles SSH config, waits for setup to co
 
 1. **Parse arguments**: Parse the JSON from `$ARGUMENTS`. Validate that `pod_id`, `pod_name`, `ip`, and `port` are present.
 
-2. **SSH alias**: the `Host runpod-<pod_name>` alias is already written to `~/.ssh/config` by `runpod_ctl.py create` (called from `/zombuul:launch-runpod`). Verify with `ssh -o ConnectTimeout=5 runpod-<pod_name> 'echo ok'`. If the alias is missing or stale (rare — happens when the pod was created outside zombuul, or its IP/port changed after a manual pause/resume), run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py refresh-ssh <pod_name>` to refresh it.
+2. **SSH alias**: the `Host runpod-<pod_name>` alias is already written to `~/.ssh/config` by `runpod_ctl.py create` (called from `/zombuul:launch-runpod`). Verify with `ssh -o ConnectTimeout=5 runpod-<pod_name> 'echo ok'`. If the alias is missing or stale (rare — happens when the pod was created outside zombuul, or its IP/port changed after a manual pause/resume), run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py refresh-ssh <pod_name>` to refresh it.
 
 3. **Phase A — concurrent setup + early sync**: Launch all of the following concurrently using `run_in_background`, then wait for ALL to complete before proceeding to Phase B:
 
-   - **Wait for setup**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id>` — polls until pod setup is done. If setup fails, re-run `pod_setup.sh` (it's idempotent).
+   - **Wait for setup**: `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py wait-setup <pod_id>` — polls until pod setup is done. If setup fails, re-run `pod_setup.sh` (it's idempotent).
    - **Sync .env to /tmp** (if `.env` exists in current working directory): `scp .env runpod-<pod_name>:/tmp/.env` — this is safe before repo clone completes since `/tmp` always exists.
    - **Data recon** (if `spec_path` is provided but `data_dirs` is NOT): Launch an Explore agent: "Read the experiment spec at <spec_path>. Find all referenced data file paths (activations .npz, embeddings, topics .json, results directories, configs). Check which exist locally (follow symlinks) and report each with its size (`du -sh`). These are likely gitignored and will need syncing to the pod." Once the agent returns, ask the user via AskUserQuestion (multiSelect) which data directories to sync, listed with sizes. Use the user's selection as `data_dirs` for Phase B.
 

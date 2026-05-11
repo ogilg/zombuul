@@ -35,9 +35,9 @@ You do not have the kickoff agent's working memory. The running log is how that 
 
 If `--pod <pod_name>` was provided:
 
-1. Verify the pod is alive: `ssh runpod-<pod_name> 'tmux ls 2>/dev/null; echo done'`. If it's paused (SSH fails), that's a problem — the babysitter was supposed to leave it running for you. Resume it once via `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py resume <pod_id>` (look up pod_id with `runpod_ctl.py list`).
+1. Verify the pod is alive: `ssh runpod-<pod_name> 'tmux ls 2>/dev/null; echo done'`. If it's paused (SSH fails), that's a problem — the babysitter was supposed to leave it running for you. Resume it once via `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py resume <pod_id>` (look up pod_id with `runpod_ctl.py list`).
 2. Determine which directories to sync. The spec's "Output structure" / per-cell results path is the canonical source. Default for most experiments: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/safe_rsync.sh -az runpod-<pod_name>:/workspace/repo/experiments/<name>/results/ experiments/<name>/results/`. Add other gitignored output dirs the spec produced. Each invocation prints `[safe_rsync] EXIT=<code> FILES=<n>`; check both lines before proceeding — `EXIT=0 FILES=0` on a finalize sync usually means you're syncing the wrong path or the experiment didn't write what the spec said it would.
-3. After sync, pause the pod: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py pause <pod_id>` (or `/zombuul:pause-runpod <pod_name>` — equivalent).
+3. After sync, pause the pod: `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py pause <pod_id>` (or `/zombuul:pause-runpod <pod_name>` — equivalent).
 
 If no `--pod` flag (purely local experiment, or `IS_SANDBOX=1` meaning you're already on the pod): skip F1.
 
@@ -63,20 +63,30 @@ Path: `experiments/<name>/<name>_report.md`. Plots go in `experiments/<name>/ass
 
 Spawn an Agent (subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to the report. Apply the feedback. Do not skip this — even a one-pass review catches missing context, ambiguous claims, and unsupported conclusions.
 
-### F5: Commit and push (cherry-pick-friendly ordering)
+### F5: Data inventory + outside-code-changes (in the report)
 
-The deliverable is `experiments/<name>/` (spec, report, assets, running log). It should be cleanly cherry-pickable to main without dragging in code/script/results changes that may not be ready to merge.
+Before final commit, append two short sections to the report.
 
-**Convention:** every commit that touches `experiments/<name>/` should ONLY touch `experiments/<name>/`. Code, scripts, results files, and config changes go in separate commits.
+**Data used.** Append a `## Data used` list (path + `du -sh` size for each gitignored input the spec reads). Pull sizes from the R1 recon agent's output in the running log if present; otherwise `du -sh` each path. Skip the section if there are no gitignored inputs.
 
-Order:
+**Code changes outside this experiment.** `git diff <base-branch>...HEAD --name-only -- ':!experiments/<name>/' ':!scripts/<name>/'`. If non-empty, append a `## Code changes outside this experiment` list of paths so the user can open a follow-up PR with just those changes.
+
+### F6: Commit and push (experiment folder is the deliverable)
+
+The deliverable is `experiments/<name>/` (spec, report, assets, running log). Order commits so the experiment-folder diff is clean and self-contained — easy to read in the PR UI.
+
 1. Commit code/scripts/data artifacts in separate, meaningfully-labeled commits. Respect `.gitignore`. Files >50 MB that aren't already gitignored should be added to `.gitignore` rather than committed.
 2. A final commit containing only `experiments/<name>/` — the deliverable.
-3. `git push -u origin HEAD`.
+3. `git push origin HEAD`.
 
-This lets the user pull the deliverable onto main with: `git checkout <branch> -- experiments/<name>/ && git commit`.
+### F7: Mark draft PR ready
 
-No PR for the report itself. PRs are reserved for cases where the experiment also produced reusable code worth reviewing.
+Find the draft PR for this branch: `gh pr list --head <branch> --state open --json number,isDraft -q '.[] | select(.isDraft)'`. If one exists:
+
+1. `gh pr ready <number>`.
+2. Rewrite the body: link to the report, 1-2 sentence headline finding. The reviewer reads the report itself.
+
+Skip silently if there's no draft PR — the deliverable is still on the branch.
 
 ## Rules
 

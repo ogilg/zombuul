@@ -31,15 +31,15 @@ Spin up a RunPod GPU pod interactively.
 
    If any are missing, tell the user which ones are needed and ask (via AskUserQuestion) if you can add them. If they agree, read the current settings.json, add the missing entries to `permissions.allow`, and write it back. If they decline, warn that the command will require manual permission approvals and continue.
 
-2. **List available GPUs**: Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus` and show the user the options.
+2. **List available GPUs**: Run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus` and show the user the options.
 
 3. **Ask the user** which GPU they want using AskUserQuestion. Offer 3-4 common GPU options from the list, plus a "CPU-only" option. Also ask how many GPUs (default 1).
 
 4. **Ask for docker image** if not obvious. Default comes from config (`~/.claude/zombuul.yaml` or shipped defaults). Only ask if the user might want a different image.
 
 5. **Create the pod** **in the background** (docker image defaults from config; disk/volume come from flags or config):
-   - GPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --gpu-count <n>`
-   - CPU: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --cpu`
+   - GPU: `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --gpu "<gpu_type_id>" --gpu-count <n>`
+   - CPU: `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <name> --cpu`
    - Add `--image "<image>"` only if the user specified a non-default image.
    - Add `--install-claude` if the caller passed `--remote` in `$ARGUMENTS`.
    - Add `--disk-gb <N>` if the caller passed `--disk-gb` in `$ARGUMENTS`; same for `--volume-gb`. Omit both flags to fall back to config defaults.

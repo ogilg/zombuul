@@ -3,9 +3,10 @@ name: zombuul:run-experiment
 description: >
   Run an experiment from a spec or description. If given a path to an existing spec, runs it directly.
   If given a natural language description, synthesizes a spec first, then runs it.
-  Argument $ARGUMENTS — `<spec_path_or_description> [--remote]`. Pass `--remote` to execute
+  Argument $ARGUMENTS — `<spec_path_or_description> [--remote] [--no-pr]`. Pass `--remote` to execute
   autonomously on a GPU pod (survives local disconnects); otherwise runs local-first.
-argument-hint: <spec-path-or-description> [--remote]
+  Pass `--no-pr` to skip the draft-PR-on-the-experiment-branch flow.
+argument-hint: <spec-path-or-description> [--remote] [--no-pr]
 user-invocable: true
 ---
 
@@ -18,6 +19,18 @@ Check `$IS_SANDBOX` and `$ARGUMENTS`:
 - **On-pod mode** — if the `IS_SANDBOX=1` env var is set, you are already inside a GPU pod that was launched by a remote-mode invocation. Jump to [On-pod execution](#on-pod-execution). Do not read the rest of this document first.
 - **Remote-launcher mode** — if `$ARGUMENTS` contains the flag `--remote` (strip it before treating the remainder as the spec path/description), go to [Remote-launcher execution](#remote-launcher-execution).
 - **Local mode** — default. `$ARGUMENTS` has no `--remote` flag and `IS_SANDBOX` is unset. Go to [Local execution](#local-execution).
+
+Strip `--remote` and `--no-pr` from `$ARGUMENTS` before parsing the spec path; forward `--no-pr` to the on-pod invocation in remote mode.
+
+## Draft PR for the experiment (default — skip with `--no-pr`)
+
+Local and remote-launcher modes open a draft PR on the experiment branch before real work begins. On-pod mode skips — the launcher already opened it.
+
+1. **Capture the base branch.** `git rev-parse --abbrev-ref HEAD` before any branch switching (before `EnterWorktree` in local mode, before pushing in remote mode). That's the PR base.
+2. **Open the PR** after the experiment branch is pushed: `gh pr create --draft --base <base> --head <experiment-branch> --title "<experiment_name>" --body "<spec path>"`. Finalize rewrites the body later.
+3. **Tell the user** the PR number and the base branch.
+
+Skip with a one-line warning if `--no-pr` or anything in the PR-open chain fails. The experiment doesn't depend on the PR.
 
 ## Phase 0: Determine input type (all modes)
 
@@ -59,7 +72,7 @@ When the subagent returns, show the user the spec path and summary. Ask: "Want m
    - Return the commands as a newline-separated list, nothing else.
 
    **b) Infrastructure agent** (only if GPU needed) — checks for running pods and determines what infrastructure is available. The agent should:
-   - Run `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`
+   - Run `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`
    - If a suitable pod is already running, return its name and connection details
    - If no suitable pod exists, return that a new pod is needed (do NOT launch one yet — the main agent will invoke `/zombuul:launch-runpod` after entering the worktree)
 
@@ -68,8 +81,10 @@ When the subagent returns, show the user the spec path and summary. Ask: "Want m
 ### Phase 2: Enter worktree and set up
 
 1. **Enter a worktree**: use the `EnterWorktree` tool with name `{experiment_name}` (derived from the spec path, e.g., `experiments/foo/foo_spec.md` → name `foo`).
-2. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
-3. **Set up infrastructure** if GPU needed:
+2. **Scaffold and commit**: create `experiments/{name}/{name}_report.md` (skeleton), `experiments/{name}/running_log.md`, and `scripts/{name}/` (empty placeholder file like `.gitkeep` if needed). Commit: `git add experiments/{name}/ scripts/{name}/ && git commit -m "scaffold: {name}"`. This gives the branch at least one commit beyond the base so the draft PR can open — `gh pr create` rejects an empty diff with `No commits between base and head`.
+3. **Push the branch and open the draft PR** — see [Draft PR for the experiment](#draft-pr-for-the-experiment-default--skip-with---no-pr).
+4. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
+5. **Set up infrastructure** if GPU needed:
    - If the infrastructure agent found a running pod, use it.
    - Otherwise: **size the pod based on the spec before invoking launch-runpod.** See [Sizing a pod from the spec](#sizing-a-pod-from-the-spec) below. Then invoke `/zombuul:launch-runpod <pod_name> --disk-gb <N> --volume-gb <N>` (local mode — do NOT pass `--remote`, the pod is just an SSH target). After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
    - Do NOT ask the user for GPU choice, data dirs, etc. Make reasonable choices. Only ask if truly blocked.
@@ -89,11 +104,12 @@ You are **not** running the experiment — you are setting up a pod that will ru
    - **Data recon subagent** (Agent, subagent_type="general-purpose", model="opus"): "Read the experiment spec at <spec_path>. Find every data path it references (activations .npz, embeddings, topics .json, results directories, configs, probe weights, concept vectors). For each: check whether it exists locally (follow symlinks), whether it's gitignored, and report size (`du -sh`). Return a structured list: `path | exists? | gitignored? | size`. The experiment will run on a GPU pod with only what git provides plus what we explicitly sync — anything gitignored that the spec reads must appear in the sync list."
    - **Push the branch**: commit any relevant unstaged changes (ask before broad commits), then `git push -u origin HEAD`. The pod clones from the remote, so unpushed work is invisible.
 3. **Wait for both**, then **decide `data_dirs`**: gitignored paths the spec reads (not writes) are the default sync set. Do not ask the user; err toward including ambiguous directories — a too-small sync is a silent failure on the pod. Capture the branch name.
+4. **Open the draft PR** — see [Draft PR for the experiment](#draft-pr-for-the-experiment-default--skip-with---no-pr).
 
 ### R2: Pod setup
 
-1. **Reuse or create**: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, **size the pod from the spec** (see [Sizing a pod from the spec](#sizing-a-pod-from-the-spec)) and invoke `/zombuul:launch-runpod <pod_name> --remote --disk-gb <N> --volume-gb <N>` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
-2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
+1. **Reuse or create**: `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py list`. If a suitable pod is already running with claude installed (verify with `ssh runpod-<name> 'command -v claude'`), reuse it. Otherwise, **size the pod from the spec** (see [Sizing a pod from the spec](#sizing-a-pod-from-the-spec)) and invoke `/zombuul:launch-runpod <pod_name> --remote --disk-gb <N> --volume-gb <N>` — the `--remote` flag causes Claude Code + the zombuul plugin to be installed on the pod. Pick a distinctive 2-3 word kebab-case name based on the experiment.
+2. **Provision**: invoke `/zombuul:provision-pod` with `{"pod_id": ..., "pod_name": ..., "ip": ..., "port": ..., "spec_path": "<spec_path>", "data_dirs": [<from R1>]}`. Wait for completion. `provision-pod`'s `wait-setup` surfaces any setup failures — if it reports `claude binary not found`, re-run setup in remote mode via `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <same> ... --install-claude` (or re-invoke `/zombuul:launch-runpod <pod_name> --remote`).
 
 ### R3: Launch the on-pod agent
 
