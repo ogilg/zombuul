@@ -102,10 +102,28 @@ def ssh_run(ip: str, port: int, command: str | list[str], **kwargs) -> subproces
 # --- Pod info ---
 
 def get_pod_env() -> dict[str, str]:
-    """Collect tokens for the pod from environment, project .env, and ~/.claude/.env."""
+    """Collect tokens + git identity for the pod from environment, project .env, and ~/.claude/.env.
+
+    GIT_USER_NAME / GIT_USER_EMAIL also fall back to `git config --global user.{name,email}`
+    so the user's real git identity gets forwarded to the pod without requiring
+    them to duplicate it into .env. pod_setup.sh runs `git config` with these
+    before the experiment can make commits.
+    """
     load_dotenv()  # load project .env into os.environ (no-op for already-set vars)
     load_dotenv(os.path.expanduser("~/.claude/.env"))  # global .env (no-op for already-set vars)
-    return {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID", "RUNPOD_API_KEY") if (v := os.environ.get(k))}
+    env = {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID", "RUNPOD_API_KEY", "GIT_USER_NAME", "GIT_USER_EMAIL") if (v := os.environ.get(k))}
+    for git_key, config_key in (("GIT_USER_NAME", "user.name"), ("GIT_USER_EMAIL", "user.email")):
+        if git_key not in env:
+            try:
+                result = subprocess.run(
+                    ["git", "config", "--global", config_key],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    env[git_key] = result.stdout.strip()
+            except Exception:
+                pass
+    return env
 
 
 def get_ssh_info(pod_id: str) -> tuple[str | None, int | None]:

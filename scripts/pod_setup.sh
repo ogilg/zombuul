@@ -50,7 +50,7 @@ retry() {
 # Import container env vars (not inherited when run via nohup over SSH)
 if [ -f /proc/1/environ ]; then
     # shellcheck disable=SC2046
-    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|RUNPOD_POD_ID)=')
+    export $(tr '\0' '\n' < /proc/1/environ | grep -E '^(HF_TOKEN|GH_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|RUNPOD_POD_ID|GIT_USER_NAME|GIT_USER_EMAIL)=')
 fi
 
 # Fallback: check for .env synced by provision-pod.
@@ -59,7 +59,7 @@ for envfile in "$REPO_DIR/.env" /tmp/.env; do
         echo "Found .env at $envfile — sourcing tokens."
         while IFS='=' read -r key value || [ -n "$key" ]; do
             case "$key" in
-                GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY)
+                GH_TOKEN|HF_TOKEN|SLACK_BOT_TOKEN|SLACK_CHANNEL_ID|RUNPOD_API_KEY|GIT_USER_NAME|GIT_USER_EMAIL)
                     value="${value%\"}"; value="${value#\"}"
                     value="${value%\'}"; value="${value#\'}"
                     export "$key=$value"
@@ -246,14 +246,14 @@ else
 fi
 
 # --- git identity ---
+# GIT_USER_NAME / GIT_USER_EMAIL are forwarded by runpod_ctl.py, which reads
+# them from the launching user's env / .env / `git config --global user.*`.
+# So on-pod commits are attributed to the real human, not a generic pod user.
 
-if [ -f "$REPO_DIR/.env" ]; then
-    GIT_USER_NAME=$(grep '^GIT_USER_NAME=' "$REPO_DIR/.env" | cut -d= -f2-)
-    GIT_USER_EMAIL=$(grep '^GIT_USER_EMAIL=' "$REPO_DIR/.env" | cut -d= -f2-)
-fi
 if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then
-    echo "FATAL: GIT_USER_NAME and/or GIT_USER_EMAIL missing or empty in $REPO_DIR/.env."
-    echo "       Without these, the pod's git commits will fail with 'Author identity unknown' mid-experiment."
+    echo "FATAL: GIT_USER_NAME and/or GIT_USER_EMAIL not forwarded to the pod."
+    echo "       runpod_ctl.py reads these from env, .env, or 'git config --global user.{name,email}'."
+    echo "       Set one of those on the launching machine, or commits will fail with 'Author identity unknown' mid-experiment."
     exit 1
 fi
 git config --global user.name "$GIT_USER_NAME"
