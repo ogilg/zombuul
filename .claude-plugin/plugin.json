@@ -1,11 +1,11 @@
 {
   "name": "zombuul",
-  "version": "1.1.21-dev",
+  "version": "1.1.24-dev",
   "description": "Run experiments on GPU pods from local Claude Code",
   "author": {
     "name": "Oscar Gilg",
-    "url": "https://github.com/oscar-gilg"
+    "url": "https://github.com/ogilg"
   },
-  "repository": "https://github.com/oscar-gilg/zombuul",
+  "repository": "https://github.com/ogilg/zombuul",
   "license": "MIT"
 }
