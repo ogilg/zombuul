@@ -3,6 +3,7 @@ name: zombuul:provision-pod
 description: >
   Provision a RunPod pod: wait for setup, configure SSH, sync .env and data.
   Argument $ARGUMENTS — JSON with keys: pod_id, pod_name, ip, port, and optionally spec_path and data_dirs.
+argument-hint: '{"pod_id": "...", "pod_name": "...", "ip": "...", "port": N}'
 user-invocable: true
 allowed-tools: Bash, AskUserQuestion, Read, Agent
 ---

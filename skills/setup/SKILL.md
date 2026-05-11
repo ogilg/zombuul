@@ -50,7 +50,7 @@ For each missing item:
 - **No SSH key**: If they have a key at a different path (e.g. `~/.ssh/id_rsa`), set `ssh_key` in `~/.claude/zombuul.yaml`. Otherwise generate one: `ssh-keygen -t ed25519`
 - **No runpod**: install with available package manager
 - **No RUNPOD_API_KEY**: direct to https://www.runpod.io/console/user/settings → API Keys, collect via AskUserQuestion, write to the project `.env` (preferred, since it gets synced to pods) or `~/.claude/.env`
-- **No Claude Code credentials**: try `security find-generic-password -s "Claude Code-credentials" -w > ~/.claude/.credentials.json && chmod 600 ~/.claude/.credentials.json`. If that fails, tell them to copy manually.
+- **No Claude Code credentials**: try `security find-generic-password -s "Claude Code-credentials" -w > ~/.claude/.credentials.json && chmod 600 ~/.claude/.credentials.json`. On non-macOS or if the Keychain entry is missing, tell the user to copy `~/.claude/.credentials.json` from another logged-in machine, or to run `claude` and complete login first.
 - **No .env / missing fields**: create template with required (GH_TOKEN, GIT_USER_NAME, GIT_USER_EMAIL) and optional (HF_TOKEN, SLACK_BOT_TOKEN, SLACK_CHANNEL_ID) fields. Collect missing required fields via AskUserQuestion.
 - **No dependency file**: warn that pod setup expects a `pyproject.toml`, `requirements.txt`, or `setup.py` in the repo root. Dependencies will be skipped on the pod if none are present.
 - **No ralph-wiggum**: ask if wanted; if yes, `/plugin marketplace add anthropics/claude-code` then install ralph-loop
@@ -85,13 +85,13 @@ Run this command to verify the RunPod API key works:
 python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py gpus
 ```
 
-If it fails, help debug (wrong key, missing package, etc.).
+If it fails, debug from the error output. Note that the env var can live in `.env` (cwd) or `~/.claude/.env` — confirm the file actually used was picked up.
 
 ## Phase 6: Summary
 
 If everything is configured, tell the user they're ready and show:
 ```
-/launch-research-pod experiments/<name>/<name>_spec.md
+/zombuul:run-experiment experiments/<name>/<name>_spec.md
 ```
 
 Tell them to create a `{name}_spec.md` first if they don't have one.
