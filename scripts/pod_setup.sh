@@ -108,10 +108,15 @@ if [ -z "$GH_TOKEN" ]; then
     echo "       Without it, gh auth login is skipped and any private clone / push will fail mid-experiment."
     exit 1
 fi
-if echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null; then
-    echo "Logged into GitHub (for git auth)."
+# gh CLI uses GH_TOKEN from env automatically when set; calling
+# `gh auth login --with-token` in that case errors out ("To have GitHub CLI
+# store credentials instead, first clear the value from the environment").
+# Verify auth works via env instead — the credential helper below uses gh's
+# auth regardless of whether it came from env or login store.
+if gh auth status >/dev/null 2>&1; then
+    echo "Logged into GitHub via GH_TOKEN env var."
 else
-    echo "FATAL: gh auth login failed — GH_TOKEN may be invalid or expired."
+    echo "FATAL: gh auth status failed despite GH_TOKEN being set — token may be invalid or expired."
     exit 1
 fi
 git config --global credential.helper '!gh auth git-credential'
