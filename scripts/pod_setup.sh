@@ -108,10 +108,12 @@ if [ -z "$GH_TOKEN" ]; then
     echo "       Without it, gh auth login is skipped and any private clone / push will fail mid-experiment."
     exit 1
 fi
-echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && echo "Logged into GitHub (for git auth)." || {
+if echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null; then
+    echo "Logged into GitHub (for git auth)."
+else
     echo "FATAL: gh auth login failed — GH_TOKEN may be invalid or expired."
     exit 1
-}
+fi
 git config --global credential.helper '!gh auth git-credential'
 
 # --- clone repo ---
