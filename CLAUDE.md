@@ -4,8 +4,8 @@
 
 Two long-lived branches:
 
-- **`main`** — production. Tracked by other users' plugin installs (`ogilg-marketplace`). Moves only on deliberate release PRs. Branch-protected (PR required, no force-pushes, no deletions). The `version-bump.yml` workflow auto-bumps the patch version on every merge to main.
-- **`dev`** — integration branch for the maintainer's own testing. Tracked by the maintainer's local install via `ogilg-marketplace-dev` (git URL source with `ref: dev`). Branch-protected identically to main (PR required, no force-pushes, no deletions).
+- **`main`** — production. Tracked by other users' plugin installs (`ogilg-marketplace`). Moves only on deliberate release PRs. Branch-protected (PR required, no force-pushes, no deletions). The `version-bump.yml` workflow opens an auto-merging bump PR after every merge to main; that PR bumps the patch in `plugin.json` and tags the release.
+- **`dev`** — integration branch for the maintainer's own testing. Tracked by the maintainer's local install via `ogilg-marketplace-dev` (git URL source with `ref: dev`). Branch-protected identically to main (PR required, no force-pushes, no deletions). The `version-bump-dev.yml` workflow opens an auto-merging bump PR after every merge to dev, incrementing the `-dev.N` counter — this is what makes `claude plugin update zombuul@ogilg-marketplace-dev` see new commits without manual cache-clearing.
 
 **Making edits — always:**
 1. `git checkout dev && git pull`
@@ -23,9 +23,9 @@ Two long-lived branches:
 
 **Dev-only files that must not merge to main:**
 - `.claude-plugin/marketplace.json` — `name` is `ogilg-marketplace-dev` on dev, `ogilg-marketplace` on main
-- `.claude-plugin/plugin.json` — `version` has `-dev` suffix on dev
+- `.claude-plugin/plugin.json` — `version` has `-dev` suffix on dev (format `X.Y.Z-dev` or `X.Y.Z-dev.N`)
 
-**Refreshing the dev install.** Dev's `plugin.json` version stays constant across pushes, so `claude plugin update zombuul@ogilg-marketplace-dev` is a silent no-op when dev has new commits. Workaround: `rm -rf ~/.claude/plugins/cache/ogilg-marketplace-dev/zombuul/<version>/` then update. Proper fix tracked at the open "PR-based dev auto-bump" issue.
+When syncing main → dev, resolve the `plugin.json` conflict to `<main-patch>-dev` (no counter) — the next dev push auto-bumps to `<main-patch>-dev.1`.
 
 **Never:**
 - PR a feature branch directly to main (go through dev).
