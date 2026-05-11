@@ -9,19 +9,15 @@ user-invocable: true
 
 Review this experiment spec for practical readiness: $ARGUMENTS
 
-> Adapt these checks to your domain. Not every item applies to every spec — skip items that don't match the spec's methodology (e.g., the train/eval/test integrity check is irrelevant for a single-pass analysis).
+> Adapt these checks to the spec's domain. Not every item applies to every spec.
 
 ## Proportionality
 
-**Scale review depth to spec complexity.** A 25-line single-step spec does not need the same scrutiny as a 100-line multi-phase experiment. Before launching agents, read the spec and estimate complexity:
-
-- **Simple** (~25–40 lines, single step, local execution, existing modules): run only Agent 2 (code pointer verification). Skip Agent 1 — its checklist adds noise for straightforward specs. Return a brief pass/fail on whether the referenced code exists and the parameters are specified.
-- **Medium** (40–80 lines, 2–3 steps, may need GPU): run both agents but tell Agent 1 to keep output to pass/fail items only — no "suggested additions" unless something is actually missing.
-- **Complex** (80+ lines, multi-phase, novel methodology): full review as described below.
+Scale review depth to spec complexity. For a short single-step spec, Agent 1's elaborated checks are overkill — run only Agent 2 (code pointer verification). For multi-phase or novel-methodology specs, run both agents with the full review below.
 
 ## What to do
 
-Read the spec, `README.md`, and `CLAUDE.md`. Then launch subagents as appropriate for the complexity level above. For medium and complex specs, launch **two parallel subagents** (Agent tool, subagent_type="general-purpose"). Agent 1 simulates reading the spec with zero prior context — pass only the spec + README + CLAUDE.md contents, nothing else. Agent 2 has access to the repo to verify code pointers.
+Read the spec, `README.md`, and `CLAUDE.md`. Then launch the appropriate subagents (Agent tool, `subagent_type="general-purpose"`). Agent 1 reads the spec with zero prior context — pass only the spec + README + CLAUDE.md, nothing else. Agent 2 has repo access to verify code pointers.
 
 ### Agent 1: Spec quality (zero-context reviewer)
 
@@ -56,18 +52,7 @@ This is the most important check. Without explicit code pointers, the executor w
 - If the spec says "use X", check whether the README/CLAUDE.md confirms X exists.
 - If a step could plausibly be done by existing code but the spec doesn't mention it, flag it — the executor will write new code instead of reusing what exists.
 
-### 2. Data requirements
-
-- Does the spec state which files are needed that aren't in the git repo (large data, model weights, etc.)?
-- Or does it confirm that no extra data sync is needed?
-- Are input file paths listed explicitly?
-
-### 3. Parameter values
-
-- Are all required parameters specified (model name, layers, batch sizes, sample counts, coefficient ranges, hyperparameters)?
-- Are there ambiguous references ("the existing pipeline", "the standard method") without specific pointers?
-
-### 4. Formats and conventions
+### 2. Formats and conventions
 
 This is where experiments most often go wrong silently. Flag any of these that are unspecified:
 
@@ -77,41 +62,33 @@ This is where experiments most often go wrong silently. Flag any of these that a
 - Config file structure (if the step is config-driven, does the spec show the config or point to an example?)
 - Naming conventions for output files
 
-### 5. Compute / memory requirements
-
-- Does the experiment involve model loading? If so, is VRAM likely sufficient for the described setup?
-- Are there batch size / sequence length choices that might OOM?
-- For non-GPU work: are wall-clock and memory expectations realistic?
-
-### 6. Success criteria
-
-- How do we know when the experiment is done?
-- Are there clear metrics or thresholds?
-
-### 7. Data integrity
+### 3. Data integrity
 
 - Are training, validation, and test sets explicitly defined as disjoint (if applicable)? If splits are mentioned, is the separation enforced at the right level (e.g., by group, not by individual observation)?
 - If results from one stage feed into another (e.g., stage A → stage B), is the methodology (prompts, parameters, parsing, scoring) consistent across stages — or is the deviation documented?
 
-### 8. Silent failure risks
-
-- Steps that could fail silently (e.g., empty results, wrong tensor shapes, mismatched task IDs, mis-parsed responses)
-- Missing sanity checks
-
-### 9. Pre-mortem: what could go wrong?
+### 4. Pre-mortem: what could go wrong?
 
 Assume the experiment runs to completion but produces a useless or misleading result. Think adversarially:
 
 - **Confounds**: Could the result be explained by something other than the intended variable? (e.g., topic/length/format artifacts, shared content between conditions)
 - **Ceiling/floor effects**: Could the metric saturate before the manipulation has a chance to show an effect?
 - **Wrong abstraction level**: Is the spec measuring the right thing? (e.g., measuring accuracy when the question is about calibration, or measuring average when the distribution is bimodal)
-- **Null result ambiguity**: If the experiment finds no effect, can we distinguish "no effect exists" from "method wasn't sensitive enough"? Are there positive controls?
+- **Null-result ambiguity**: If the experiment finds no effect, can we distinguish "no effect exists" from "method wasn't sensitive enough"? Are there positive controls?
 
 For each risk, suggest a concrete mitigation.
 
+### Also check (one-line each)
+
+- **Data requirements** — non-git files (large data, model weights) listed, or confirmed unnecessary; input paths explicit.
+- **Parameter values** — all required parameters specified (models, layers, batch sizes, sample counts, hyperparameters); no vague references.
+- **Compute / memory** — VRAM sufficient for model load + batch/sequence; non-GPU wall-clock realistic.
+- **Definition of done** — what artifacts/runs/plots must exist for the experiment to count as carried out as specified.
+- **Silent failure risks** — empty results, shape mismatches, mis-parsed responses, missing sanity checks.
+
 ## Output
 
-1. **Pass/fail** per section (one line each)
+1. **Pass/fail** per section + per checklist item (one line each)
 2. **Issues** — quote the problematic text and suggest a fix
 3. **Suggested additions** — concrete text the user can paste into the spec
 ```
@@ -137,11 +114,11 @@ Only report code references. Do not review anything else.
 
 ## After both agents return
 
-Merge the results into a single review:
+Merge into a single review:
 
-1. **Pass/fail summary** — one line per checklist item (code reuse, data requirements, parameters, formats/conventions, compute/memory, success criteria, data integrity, silent failures, pre-mortem risks)
-2. **Code pointer verification** — which references exist, which don't
-3. **Issues** — from Agent 1
-4. **Suggested additions** — from Agent 1
+1. **Pass/fail summary** — one line per item (code reuse, formats, data integrity, pre-mortem, plus the "Also check" items).
+2. **Code pointer verification** — which references exist, which don't.
+3. **Issues** — from Agent 1.
+4. **Suggested additions** — from Agent 1.
 
 Present to the user.
