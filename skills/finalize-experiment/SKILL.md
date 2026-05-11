@@ -63,20 +63,47 @@ Path: `experiments/<name>/<name>_report.md`. Plots go in `experiments/<name>/ass
 
 Spawn an Agent (subagent_type="general-purpose", model="opus") with `/zombuul:review-experiment-report`, passing the path to the report. Apply the feedback. Do not skip this — even a one-pass review catches missing context, ambiguous claims, and unsupported conclusions.
 
-### F5: Commit and push (cherry-pick-friendly ordering)
+### F5: Data inventory + outside-code-changes (in the report)
 
-The deliverable is `experiments/<name>/` (spec, report, assets, running log). It should be cleanly cherry-pickable to main without dragging in code/script/results changes that may not be ready to merge.
+Before final commit, append two short sections to the report.
 
-**Convention:** every commit that touches `experiments/<name>/` should ONLY touch `experiments/<name>/`. Code, scripts, results files, and config changes go in separate commits.
+**Data used.** From the spec's input paths, run `du -sh <path>` on each and list:
 
-Order:
+```
+## Data used
+- activations/<dir>/ (2.3G)
+- probe_data/<dir>/ (45M)
+```
+
+Skip the section entirely if the experiment has no gitignored inputs.
+
+**Code changes outside this experiment.** Run `git diff <pr-base-branch>...HEAD --name-only -- ':!experiments/<name>/' ':!scripts/<name>/'`. If non-empty, append:
+
+```
+## Code changes outside this experiment
+Modified while running. These are not in this PR — open a separate one:
+- <path>
+- <path>
+```
+
+The user uses this list to spin off a follow-up PR with just the code changes. Don't include diffs, just paths.
+
+### F6: Commit and push (experiment folder is the deliverable)
+
+The deliverable is `experiments/<name>/` (spec, report, assets, running log). Order commits so the experiment-folder diff is clean and self-contained — easy to read in the PR UI.
+
 1. Commit code/scripts/data artifacts in separate, meaningfully-labeled commits. Respect `.gitignore`. Files >50 MB that aren't already gitignored should be added to `.gitignore` rather than committed.
 2. A final commit containing only `experiments/<name>/` — the deliverable.
-3. `git push -u origin HEAD`.
+3. `git push origin HEAD`.
 
-This lets the user pull the deliverable onto main with: `git checkout <branch> -- experiments/<name>/ && git commit`.
+### F7: Mark draft PR ready
 
-No PR for the report itself. PRs are reserved for cases where the experiment also produced reusable code worth reviewing.
+Find the draft PR for this branch: `gh pr list --head <branch> --state open --json number,isDraft -q '.[] | select(.isDraft)'`. If one exists:
+
+1. Mark it ready: `gh pr ready <number>`.
+2. Rewrite the body: 2-3 sentence summary of findings, link to the report (`experiments/<name>/<name>_report.md`), mention "see § Code changes outside this experiment in the report" if F5 found any.
+
+Skip silently if no draft PR exists (e.g. user invoked with `--no-pr` or the launcher couldn't open one). The deliverable is still on the branch and pushed.
 
 ## Rules
 
