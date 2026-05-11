@@ -91,15 +91,21 @@ Run in the main session — subagents can't invoke skills recursively. Slow tail
 The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zombuul itself.
 
 1. Save the current cwd. Clone `oscar-gilg/zombuul-smoke-bed` into a fresh tmp dir and cd in.
-2. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. Capture the PR number when run-experiment announces it.
-3. Wait for it to return.
-4. **Verify**: from inside the worktree, run `experiments/smoke_e2e/verify.py experiments/smoke_e2e/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
-5. **Always run cleanup, even if verification failed.** Idempotent:
+2. Rename the experiment dir to include a timestamp so each run has a unique branch/PR on the fixture repo:
+   ```
+   NAME=smoke_e2e_$(date +%Y%m%d_%H%M%S)
+   mv experiments/smoke_e2e experiments/$NAME
+   mv experiments/$NAME/smoke_e2e_spec.md experiments/$NAME/${NAME}_spec.md
+   ```
+3. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/$NAME/${NAME}_spec.md"`. Capture the PR number when run-experiment announces it.
+4. Wait for it to return.
+5. **Verify**: from inside the worktree, run `experiments/$NAME/verify.py experiments/$NAME/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
+6. **Always run cleanup, even if verification failed.** Idempotent:
    - `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
    - `git push origin --delete <branch>` from inside the clone.
    - `ExitWorktree`.
    - `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Get pod_id from the experiment's running_log.
-6. Return to the saved cwd and remove the tmp dir.
+7. Return to the saved cwd and remove the tmp dir.
 
 **Pass criterion**: results.json verifies AND PR was opened+marked-ready AND cleanup succeeded.
 
