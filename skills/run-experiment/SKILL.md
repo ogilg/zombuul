@@ -81,9 +81,10 @@ When the subagent returns, show the user the spec path and summary. Ask: "Want m
 ### Phase 2: Enter worktree and set up
 
 1. **Enter a worktree**: use the `EnterWorktree` tool with name `{experiment_name}` (derived from the spec path, e.g., `experiments/foo/foo_spec.md` → name `foo`).
-2. **Push the branch and open the draft PR** — see [Draft PR for the experiment](#draft-pr-for-the-experiment-default--skip-with---no-pr).
-3. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
-4. **Set up infrastructure** if GPU needed:
+2. **Scaffold and commit**: create `experiments/{name}/{name}_report.md` (skeleton), `experiments/{name}/running_log.md`, and `scripts/{name}/` (empty placeholder file like `.gitkeep` if needed). Commit: `git add experiments/{name}/ scripts/{name}/ && git commit -m "scaffold: {name}"`. This gives the branch at least one commit beyond the base so the draft PR can open — `gh pr create` rejects an empty diff with `No commits between base and head`.
+3. **Push the branch and open the draft PR** — see [Draft PR for the experiment](#draft-pr-for-the-experiment-default--skip-with---no-pr).
+4. **Run the symlink commands** returned by the symlink discovery agent. Verify the experiment's input files are accessible.
+5. **Set up infrastructure** if GPU needed:
    - If the infrastructure agent found a running pod, use it.
    - Otherwise: **size the pod based on the spec before invoking launch-runpod.** See [Sizing a pod from the spec](#sizing-a-pod-from-the-spec) below. Then invoke `/zombuul:launch-runpod <pod_name> --disk-gb <N> --volume-gb <N>` (local mode — do NOT pass `--remote`, the pod is just an SSH target). After it completes, sync experiment data via `/zombuul:provision-pod`, passing `data_dirs` explicitly (inferred from the spec) to skip interactive recon.
    - Do NOT ask the user for GPU choice, data dirs, etc. Make reasonable choices. Only ask if truly blocked.

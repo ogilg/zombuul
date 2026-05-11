@@ -58,7 +58,7 @@ Prompt:
 >
 > **Steps:**
 >
-> 1. Read `~/.claude/zombuul.yaml` for default GPU type. If a `gpu_type` field is set, use it. Otherwise call `runpod_ctl.py gpus` and pick the cheapest GPU type (lowest `$/hr`).
+> 1. Read `~/.claude/zombuul.yaml` for default GPU type. If a `gpu_type` field is set, use it. Otherwise default to `NVIDIA RTX A4000` — any cheap GPU works, we just need a CUDA device. If create fails with `no instances available`, retry once with `NVIDIA RTX A5000`.
 >
 > 2. Create the pod:
 >    `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py create --name <smoke_pod_name> --gpu <gpu_type>`.
@@ -90,22 +90,31 @@ Run in the main session — subagents can't invoke skills recursively. Slow tail
 
 The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zombuul itself.
 
-1. Save the current cwd. Clone `oscar-gilg/zombuul-smoke-bed` into a fresh tmp dir and cd in.
+**Adaptation notes** (smoke-test specific — these are NOT how a real experiment would run):
+
+- The Claude Code session's cwd is fixed to the user's dev repo (e.g. `/Users/oscargilg/Dev/zombuul`), not the smoke-bed clone. `EnterWorktree` operates on the session's git repo and would create a worktree of zombuul, not smoke-bed.
+- So: clone smoke-bed to a fixed absolute path (`/tmp/zombuul-smoke/zombuul-smoke-bed`), **skip `EnterWorktree`** (the clone is already an isolated workspace), and chain `cd /tmp/zombuul-smoke/zombuul-smoke-bed && ...` in every Bash call (cwd doesn't persist between Bash calls). Pass an **absolute spec path** to `/zombuul:run-experiment`.
+- When `/zombuul:run-experiment` tells you to use `EnterWorktree`, ignore it and work directly in the clone.
+- `pod_setup.sh` on the pod will clone the user's dev repo (it reads the caller's cwd git origin). That's fine here: the smoke test never reads the cloned repo on the pod, it just `scp`s `scripts/$NAME/forward.py` over.
+
+Steps:
+
+1. Clone `oscar-gilg/zombuul-smoke-bed` to `/tmp/zombuul-smoke/zombuul-smoke-bed` (delete any existing path first).
 2. Rename the experiment dir to include a timestamp so each run has a unique branch/PR on the fixture repo:
    ```
+   cd /tmp/zombuul-smoke/zombuul-smoke-bed
    NAME=smoke_e2e_$(date +%Y%m%d_%H%M%S)
    mv experiments/smoke_e2e experiments/$NAME
    mv experiments/$NAME/smoke_e2e_spec.md experiments/$NAME/${NAME}_spec.md
    ```
-3. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/$NAME/${NAME}_spec.md"`. Capture the PR number when run-experiment announces it.
+3. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="/tmp/zombuul-smoke/zombuul-smoke-bed/experiments/$NAME/${NAME}_spec.md"` (absolute path). Capture the PR number when run-experiment announces it.
 4. Wait for it to return.
-5. **Verify**: from inside the worktree, run `experiments/$NAME/verify.py experiments/$NAME/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
+5. **Verify**: `cd /tmp/zombuul-smoke/zombuul-smoke-bed && experiments/$NAME/verify.py experiments/$NAME/results.json`. Exit 0 = pass. The thresholds and assertions live in that script — do not re-implement them here. Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
 6. **Always run cleanup, even if verification failed.** Idempotent:
    - `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
-   - `git push origin --delete <branch>` from inside the clone.
-   - `ExitWorktree`.
+   - `cd /tmp/zombuul-smoke/zombuul-smoke-bed && git push origin --delete <branch>`.
    - `${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Get pod_id from the experiment's running_log.
-7. Return to the saved cwd and remove the tmp dir.
+7. `rm -rf /tmp/zombuul-smoke`.
 
 **Pass criterion**: results.json verifies AND PR was opened+marked-ready AND cleanup succeeded.
 
