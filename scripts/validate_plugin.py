@@ -7,6 +7,7 @@ Intended to run in CI before a release ships.
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -16,9 +17,54 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 FAILURES: list[str] = []
 
+MAIN_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+DEV_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+-dev(?:\.\d+)?$")
+MAIN_MARKETPLACE_NAME = "ogilg-marketplace"
+DEV_MARKETPLACE_NAME = "ogilg-marketplace-dev"
+
 
 def fail(msg: str) -> None:
     FAILURES.append(msg)
+
+
+def validate_target_branch(target: str) -> None:
+    """Assert plugin.json version and marketplace.json name match the target branch's
+    invariants. Prevents dev-only state from leaking into a main release (or vice versa)."""
+    plugin_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
+    market_path = REPO_ROOT / ".claude-plugin" / "marketplace.json"
+    try:
+        plugin = json.loads(plugin_path.read_text())
+        market = json.loads(market_path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        fail(f"target={target}: cannot read manifests — {e}")
+        return
+    version = plugin.get("version", "")
+    name = market.get("name", "")
+    if target == "main":
+        if not MAIN_VERSION_RE.match(version):
+            fail(
+                f"{plugin_path}: version '{version}' is not strict semver (X.Y.Z). "
+                "Main must not carry a '-dev' suffix — did a dev→main release skip "
+                "`git checkout main -- .claude-plugin/{marketplace,plugin}.json`?"
+            )
+        if name != MAIN_MARKETPLACE_NAME:
+            fail(
+                f"{market_path}: marketplace name is '{name}', expected "
+                f"'{MAIN_MARKETPLACE_NAME}'. Dev's marketplace rename leaked into main."
+            )
+    elif target == "dev":
+        if not DEV_VERSION_RE.match(version):
+            fail(
+                f"{plugin_path}: version '{version}' must match "
+                "'X.Y.Z-dev' or 'X.Y.Z-dev.N' on the dev branch."
+            )
+        if name != DEV_MARKETPLACE_NAME:
+            fail(
+                f"{market_path}: marketplace name is '{name}', expected "
+                f"'{DEV_MARKETPLACE_NAME}' on the dev branch."
+            )
+    else:
+        fail(f"validate_target_branch: unknown target '{target}'")
 
 
 def validate_plugin_json() -> None:
@@ -131,15 +177,26 @@ def validate_skills() -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--target",
+        choices=("main", "dev"),
+        help="Also assert version/marketplace-name invariants for the given target branch.",
+    )
+    args = parser.parse_args()
+
     validate_plugin_json()
     validate_marketplace_json()
     validate_skills()
+    if args.target:
+        validate_target_branch(args.target)
     if FAILURES:
         for line in FAILURES:
             print(f"FAIL: {line}")
         print(f"\n{len(FAILURES)} validation failure(s).", file=sys.stderr)
         return 1
-    print("OK: plugin.json, marketplace.json, and all SKILL.md files validate.")
+    suffix = f" (target={args.target})" if args.target else ""
+    print(f"OK: plugin.json, marketplace.json, and all SKILL.md files validate{suffix}.")
     return 0
 
 

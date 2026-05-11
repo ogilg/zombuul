@@ -1,4 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "runpod",
+#     "pyyaml",
+#     "python-dotenv",
+# ]
+# ///
 """RunPod pod management CLI. Used by Claude Code slash commands."""
 
 import argparse
@@ -61,10 +69,12 @@ def show_config():
 
 
 def load_api_key():
+    # cwd .env wins over ~/.claude/.env (load_dotenv does not override existing keys).
+    load_dotenv()
     load_dotenv(os.path.expanduser("~/.claude/.env"))
     key = os.environ.get("RUNPOD_API_KEY")
     if not key:
-        print("ERROR: RUNPOD_API_KEY not found. Add it to ~/.claude/.env")
+        print("ERROR: RUNPOD_API_KEY not found. Add it to ./.env or ~/.claude/.env")
         sys.exit(1)
     runpod.api_key = key
 
@@ -92,10 +102,29 @@ def ssh_run(ip: str, port: int, command: str | list[str], **kwargs) -> subproces
 # --- Pod info ---
 
 def get_pod_env() -> dict[str, str]:
-    """Collect tokens for the pod from environment, project .env, and ~/.claude/.env."""
+    """Collect tokens + git identity for the pod from environment, project .env, and ~/.claude/.env.
+
+    GIT_USER_NAME / GIT_USER_EMAIL also fall back to `git config user.{name,email}`
+    so the user's real git identity gets forwarded to the pod without requiring
+    them to duplicate it into .env. `git config` (no --global) uses git's normal
+    precedence: repo-local → global → system, so per-repo identity is respected
+    when zombuul is invoked from inside a git repo.
+    """
     load_dotenv()  # load project .env into os.environ (no-op for already-set vars)
     load_dotenv(os.path.expanduser("~/.claude/.env"))  # global .env (no-op for already-set vars)
-    return {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID", "RUNPOD_API_KEY") if (v := os.environ.get(k))}
+    env = {k: v for k in ("HF_TOKEN", "GH_TOKEN", "SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID", "RUNPOD_API_KEY", "GIT_USER_NAME", "GIT_USER_EMAIL") if (v := os.environ.get(k))}
+    for git_key, config_key in (("GIT_USER_NAME", "user.name"), ("GIT_USER_EMAIL", "user.email")):
+        if git_key not in env:
+            try:
+                result = subprocess.run(
+                    ["git", "config", config_key],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    env[git_key] = result.stdout.strip()
+            except Exception:
+                pass
+    return env
 
 
 def get_ssh_info(pod_id: str) -> tuple[str | None, int | None]:
@@ -149,6 +178,17 @@ def get_current_branch() -> str:
 def extract_claude_credentials() -> str | None:
     """Extract fresh Claude Code credentials from macOS Keychain. Returns path or None."""
     creds_file = os.path.expanduser("~/.claude/.credentials.json")
+
+    if sys.platform != "darwin":
+        print(
+            "  Skipping Keychain extraction: only supported on macOS. "
+            f"Copy {creds_file} from a logged-in macOS host, or run `claude` "
+            "to log in on this machine first."
+        )
+        if os.path.exists(creds_file):
+            return creds_file
+        return None
+
     try:
         result = subprocess.run(
             ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
@@ -161,6 +201,10 @@ def extract_claude_credentials() -> str | None:
             os.chmod(creds_file, 0o600)
             print("  Extracted fresh credentials from Keychain.")
             return creds_file
+        print(
+            "  Keychain entry 'Claude Code-credentials' not found. "
+            "Run `claude` to log in, then re-run with --install-claude."
+        )
     except Exception as e:
         print(f"  Could not extract from Keychain: {e}")
 
@@ -193,7 +237,7 @@ def get_repo_url() -> str:
     sys.exit(1)
 
 
-def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.12", install_claude: bool = False, extras: str = "auto"):
+def setup_pod(ip: str, port: int, repo_url: str, branch: str, python_version: str = "3.11", install_claude: bool = False, extras: str = "auto"):
     setup_script = find_setup_script()
 
     print("  Copying pod_setup.sh...")
@@ -223,7 +267,7 @@ def list_gpus():
         print(f"  {gpu['id']:45s} {gpu['memoryInGb']}GB")
 
 
-def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.12", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4", template_id: str | None = None, install_claude: bool = False, extras: str = "auto"):
+def create_pod(name: str, gpu_type_id: str | None, image_name: str, repo_url: str, branch: str, *, python_version: str = "3.11", volume_gb: int = 100, disk_gb: int = 200, gpu_count: int = 1, cpu_instance_id: str = "cpu3c-2-4", template_id: str | None = None, install_claude: bool = False, extras: str = "auto"):
     kind = gpu_type_id or "CPU-only"
     if template_id:
         print(f"Creating pod '{name}' with {kind} (template: {template_id})...")

@@ -23,11 +23,19 @@ jobs:
         id: bump
         run: |
           NEW=$(python3 - <<'PY'
-          import json
+          import json, re, sys
           path = ".claude-plugin/plugin.json"
           with open(path) as f:
               d = json.load(f)
-          major, minor, patch = d["version"].split(".")
+          v = d["version"]
+          m = re.match(r"^(\d+)\.(\d+)\.(\d+)$", v)
+          if not m:
+              sys.exit(
+                  f"FATAL: main's plugin.json version '{v}' is not strict semver. "
+                  "A dev-only suffix likely leaked into main — investigate before "
+                  "letting this workflow corrupt the release further."
+              )
+          major, minor, patch = m.groups()
           new = f"{major}.{minor}.{int(patch) + 1}"
           d["version"] = new
           with open(path, "w") as f:

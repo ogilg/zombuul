@@ -1,0 +1,23 @@
+name: Validate target branch
+
+# Guard against dev-only state (marketplace name `ogilg-marketplace-dev`, `-dev` version
+# suffix) leaking into main, and against missing-suffix / wrong-name states leaking onto
+# dev. Runs on every PR targeting main or dev.
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  validate:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate against target branch invariants
+        run: python scripts/validate_plugin.py --target "${{ github.base_ref }}"
