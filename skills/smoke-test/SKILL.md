@@ -86,33 +86,22 @@ Wait for A, B, C to complete. Capture their pass/fail results for the final summ
 
 ## E (experiment e2e, serial, in this session)
 
-Run the orchestration + PR flow check in the main session (not a subagent — so the recursive `/zombuul:run-experiment` call uses normal skill machinery). This is the slow tail: ~5–8 min.
+Run in the main session — subagents can't invoke skills recursively. Slow tail: ~5–8 min.
 
-The test runs against a separate fixture repo — **`oscar-gilg/zombuul-smoke-bed`** — so it never opens PRs on zombuul itself. The fixture repo only holds the spec; PRs there are expected and self-cleaning.
+The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zombuul itself.
 
-1. **Save zombuul cwd**: `ZOMBUUL_CWD=$(pwd)` so we can return at the end.
-2. **Clone the fixture repo into a temp dir** and cd in:
-   ```
-   TMP=$(mktemp -d)
-   gh repo clone oscar-gilg/zombuul-smoke-bed "$TMP/smoke-bed"
-   cd "$TMP/smoke-bed"
-   ```
-   Cloning fresh avoids stale-state issues from prior runs.
-3. **Invoke the experiment**: call `Skill` tool with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. The PR will target `main` of zombuul-smoke-bed (whichever branch `gh repo clone` checked out).
-4. **Wait for it to return.** Run-experiment creates a worktree, pushes the branch, opens a draft PR on zombuul-smoke-bed, spins up a cheap GPU pod, runs the forward pass via SSH, syncs results back, finalizes, marks the PR ready.
-5. **Verify**:
-   - `experiments/smoke_e2e/results.json` exists in the worktree. Read it. Check `no_nans == true`, `logits_norm > 0`, `device` starts with `cuda`, `predicted_token_id` is a positive integer.
-   - The PR on zombuul-smoke-bed is no longer draft: `gh pr list --repo oscar-gilg/zombuul-smoke-bed --head <branch> --json number,isDraft -q '.[0]'` returns `isDraft: false`.
-6. **Cleanup** (idempotent — do not skip on failures):
-   - Close the PR without merging: `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
-   - Delete the remote branch: `gh api -X DELETE repos/oscar-gilg/zombuul-smoke-bed/git/refs/heads/<branch>` (or `git push origin --delete <branch>` from inside the clone).
-   - Exit the worktree (`ExitWorktree`) if the session is still active.
-   - Terminate the pod the experiment used: `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes` (find pod_id from the experiment's running_log or `runpod_ctl.py list`).
-7. **Return**: `cd "$ZOMBUUL_CWD"` and `rm -rf "$TMP"`.
+1. Save the current cwd. Clone `oscar-gilg/zombuul-smoke-bed` into a fresh tmp dir and cd in.
+2. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. Capture the PR number when run-experiment announces it.
+3. Wait for it to return.
+4. **Verify**: read `experiments/smoke_e2e/results.json` in the worktree. Check `no_nans == true`, `logits_norm > 0`, `device` starts with `cuda`, `predicted_token_id` is a positive integer. Confirm the captured PR is no longer draft (`gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`).
+5. **Always run cleanup, even if verification failed.** Idempotent:
+   - `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
+   - `git push origin --delete <branch>` from inside the clone.
+   - `ExitWorktree`.
+   - `python ${CLAUDE_PLUGIN_ROOT}/scripts/runpod_ctl.py terminate <pod_id> --yes`. Get pod_id from the experiment's running_log.
+6. Return to the saved cwd and remove the tmp dir.
 
 **Pass criterion**: results.json verifies AND PR was opened+marked-ready AND cleanup succeeded.
-
-If E fails partway and leaks pod/branch/PR, call this out loudly with the cleanup commands so the user can finish manually.
 
 ## Final report
 
@@ -123,7 +112,7 @@ Zombuul smoke test results:
   A (API)      PASS/FAIL — ...
   B (list)     PASS/FAIL — ...
   C (pod e2e)  PASS/FAIL — ...
-  E (run-experiment e2e)  PASS/FAIL — ...
+  E (experiment e2e)  PASS/FAIL — ...
 
 Overall: PASS/FAIL
 ```

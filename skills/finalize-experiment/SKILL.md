@@ -67,26 +67,9 @@ Spawn an Agent (subagent_type="general-purpose", model="opus") with `/zombuul:re
 
 Before final commit, append two short sections to the report.
 
-**Data used.** From the spec's input paths, run `du -sh <path>` on each and list:
+**Data used.** Append a `## Data used` list (path + `du -sh` size for each gitignored input the spec reads). Pull sizes from the R1 recon agent's output in the running log if present; otherwise `du -sh` each path. Skip the section if there are no gitignored inputs.
 
-```
-## Data used
-- activations/<dir>/ (2.3G)
-- probe_data/<dir>/ (45M)
-```
-
-Skip the section entirely if the experiment has no gitignored inputs.
-
-**Code changes outside this experiment.** Run `git diff <pr-base-branch>...HEAD --name-only -- ':!experiments/<name>/' ':!scripts/<name>/'`. If non-empty, append:
-
-```
-## Code changes outside this experiment
-Modified while running. These are not in this PR — open a separate one:
-- <path>
-- <path>
-```
-
-The user uses this list to spin off a follow-up PR with just the code changes. Don't include diffs, just paths.
+**Code changes outside this experiment.** `git diff <base-branch>...HEAD --name-only -- ':!experiments/<name>/' ':!scripts/<name>/'`. If non-empty, append a `## Code changes outside this experiment` list of paths so the user can open a follow-up PR with just those changes.
 
 ### F6: Commit and push (experiment folder is the deliverable)
 
@@ -100,10 +83,10 @@ The deliverable is `experiments/<name>/` (spec, report, assets, running log). Or
 
 Find the draft PR for this branch: `gh pr list --head <branch> --state open --json number,isDraft -q '.[] | select(.isDraft)'`. If one exists:
 
-1. Mark it ready: `gh pr ready <number>`.
-2. Rewrite the body: 2-3 sentence summary of findings, link to the report (`experiments/<name>/<name>_report.md`), mention "see § Code changes outside this experiment in the report" if F5 found any.
+1. `gh pr ready <number>`.
+2. Rewrite the body: link to the report, 1-2 sentence headline finding. The reviewer reads the report itself.
 
-Skip silently if no draft PR exists (e.g. user invoked with `--no-pr` or the launcher couldn't open one). The deliverable is still on the branch and pushed.
+Skip silently if there's no draft PR — the deliverable is still on the branch.
 
 ## Rules
 
