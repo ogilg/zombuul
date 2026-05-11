@@ -23,9 +23,9 @@ Two long-lived branches:
 
 **Dev-only files that must not merge to main:**
 - `.claude-plugin/marketplace.json` — `name` is `ogilg-marketplace-dev` on dev, `ogilg-marketplace` on main
-- `.claude-plugin/plugin.json` — `version` has `-dev` suffix on dev (format `X.Y.Z-dev` or `X.Y.Z-dev.N`)
+- `.claude-plugin/plugin.json` — `version` has `-dev` suffix on dev
 
-**Dev version auto-bumps.** `.github/workflows/version-bump-dev.yml` increments the `-dev.N` counter on every push to `dev`, so each dev commit has a unique version. Without this, `claude plugin update zombuul@ogilg-marketplace-dev` is a silent no-op (the plugin manager compares version strings). When syncing main → dev, resolve the `plugin.json` conflict to `X.Y.Z-dev` (main's patch + `-dev`, no counter) — the next push to dev auto-bumps to `X.Y.Z-dev.1`.
+**Refreshing the dev install.** Dev's `plugin.json` version stays constant across pushes, so `claude plugin update zombuul@ogilg-marketplace-dev` is a silent no-op when dev has new commits. Workaround: `rm -rf ~/.claude/plugins/cache/ogilg-marketplace-dev/zombuul/<version>/` then update. Proper fix tracked at the open "PR-based dev auto-bump" issue.
 
 **Never:**
 - PR a feature branch directly to main (go through dev).
