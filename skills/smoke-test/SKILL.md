@@ -93,7 +93,15 @@ The test runs against `oscar-gilg/zombuul-smoke-bed` — never opens PRs on zomb
 1. Save the current cwd. Clone `oscar-gilg/zombuul-smoke-bed` into a fresh tmp dir and cd in.
 2. Invoke `Skill` with `skill="zombuul:run-experiment"`, `args="experiments/smoke_e2e/smoke_e2e_spec.md"`. Capture the PR number when run-experiment announces it.
 3. Wait for it to return.
-4. **Verify**: read `experiments/smoke_e2e/results.json` in the worktree. Check `no_nans == true`, `logits_norm > 0`, `device` starts with `cuda`, `predicted_token_id` is a positive integer. Confirm the captured PR is no longer draft (`gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`).
+4. **Verify**: read `experiments/smoke_e2e/results.json` in the worktree. All must hold:
+   - `no_nans == true`
+   - `device` starts with `cuda`
+   - `" dog"` is in `top3_token_strs` (canonical pangram completion — confirms the model knows English)
+   - `ce_for_dog < 3.0` (random weights would give ~10.8; correct gpt-2 < 1.0)
+   - `max_minus_mean > 5.0` (confident prediction, not flat distribution)
+   - `entropy` in `[0.5, 5.0]` (no delta, no uniform)
+
+   Also confirm the captured PR is no longer draft: `gh pr view <num> --repo oscar-gilg/zombuul-smoke-bed --json isDraft -q .isDraft` returns `false`.
 5. **Always run cleanup, even if verification failed.** Idempotent:
    - `gh pr close <num> --repo oscar-gilg/zombuul-smoke-bed`.
    - `git push origin --delete <branch>` from inside the clone.
