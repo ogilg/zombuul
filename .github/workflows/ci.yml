@@ -23,7 +23,8 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pytest runpod python-dotenv
+        # Keep in sync with the PEP 723 block in scripts/runpod_ctl.py.
+        run: pip install pytest runpod python-dotenv pyyaml
 
       - name: Run tests
         run: pytest tests/ -v

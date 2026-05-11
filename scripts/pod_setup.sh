@@ -16,7 +16,7 @@ set -o pipefail
 
 REPO_URL="${1:?Usage: bash pod_setup.sh <repo_url> [branch] [python_version] [install_claude] [extras]}"
 BRANCH="${2:-main}"
-PYTHON_VERSION="${3:-3.12}"
+PYTHON_VERSION="${3:-3.11}"
 INSTALL_CLAUDE="${4:-false}"
 EXTRAS="${5:-auto}"
 REPO_DIR="/workspace/repo"
@@ -103,10 +103,16 @@ retry "install gh" 3 10 install_gh
 # Use gh CLI as credential helper instead of embedding token in URL.
 # Embedding the token in the URL triggers GitHub push protection on push.
 
-if [ -n "$GH_TOKEN" ]; then
-    echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && echo "Logged into GitHub (for git auth)." || echo "WARNING: gh login failed."
-    git config --global credential.helper '!gh auth git-credential'
+if [ -z "$GH_TOKEN" ]; then
+    echo "FATAL: GH_TOKEN is empty. Set GH_TOKEN in the repo's .env (or in /proc/1/environ) before launching."
+    echo "       Without it, gh auth login is skipped and any private clone / push will fail mid-experiment."
+    exit 1
 fi
+echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && echo "Logged into GitHub (for git auth)." || {
+    echo "FATAL: gh auth login failed — GH_TOKEN may be invalid or expired."
+    exit 1
+}
+git config --global credential.helper '!gh auth git-credential'
 
 # --- clone repo ---
 
@@ -172,6 +178,18 @@ mkdir -p /opt/venvs
 if [ ! -d /opt/venvs/research/bin ]; then
     retry "create venv" 3 5 uv venv --python "$PYTHON_VERSION" /opt/venvs/research
 fi
+# Fail loudly if the venv didn't get built — otherwise we silently activate
+# nothing and downstream `uv pip install` lands in the wrong interpreter.
+if [ ! -x /opt/venvs/research/bin/python ]; then
+    echo "FATAL: venv /opt/venvs/research not created. Requested Python $PYTHON_VERSION may be unavailable in this image."
+    echo "       Check defaults.yaml python_version vs. the docker_image's bundled Python."
+    exit 1
+fi
+ACTUAL_PY=$(/opt/venvs/research/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+if [ "$ACTUAL_PY" != "$PYTHON_VERSION" ]; then
+    echo "FATAL: venv built with Python $ACTUAL_PY, but $PYTHON_VERSION was requested."
+    exit 1
+fi
 # shellcheck disable=SC1091
 source /opt/venvs/research/bin/activate
 cd "$REPO_DIR" || exit 1
@@ -226,12 +244,13 @@ if [ -f "$REPO_DIR/.env" ]; then
     GIT_USER_NAME=$(grep '^GIT_USER_NAME=' "$REPO_DIR/.env" | cut -d= -f2-)
     GIT_USER_EMAIL=$(grep '^GIT_USER_EMAIL=' "$REPO_DIR/.env" | cut -d= -f2-)
 fi
-if [ -n "$GIT_USER_NAME" ]; then
-    git config --global user.name "$GIT_USER_NAME"
+if [ -z "$GIT_USER_NAME" ] || [ -z "$GIT_USER_EMAIL" ]; then
+    echo "FATAL: GIT_USER_NAME and/or GIT_USER_EMAIL missing or empty in $REPO_DIR/.env."
+    echo "       Without these, the pod's git commits will fail with 'Author identity unknown' mid-experiment."
+    exit 1
 fi
-if [ -n "$GIT_USER_EMAIL" ]; then
-    git config --global user.email "$GIT_USER_EMAIL"
-fi
+git config --global user.name "$GIT_USER_NAME"
+git config --global user.email "$GIT_USER_EMAIL"
 
 # --- auth (tokens passed via environment) ---
 
