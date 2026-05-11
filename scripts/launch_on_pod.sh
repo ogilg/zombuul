@@ -11,6 +11,7 @@ SPEC_PATH="${2:?Usage: launch_on_pod.sh <branch> <spec_path>}"
 
 # Load env (RUNPOD_POD_ID, RUNPOD_API_KEY, HF_TOKEN, GH_TOKEN, etc.) before
 # registering the trap so pause_pod has access to them.
+# shellcheck source=/dev/null
 source ~/.bash_profile
 
 pause_pod() {
@@ -20,7 +21,7 @@ pause_pod() {
 }
 trap pause_pod EXIT
 
-cd /workspace/repo
+cd /workspace/repo || exit 1
 git checkout "$BRANCH"
 git pull origin "$BRANCH"
 
