@@ -1,9 +1,15 @@
 name: CI
 
+# Fire on every push. The pull_request trigger was unreliable on PR open
+# (~40% of PRs today saw no CI dispatch until we pushed an empty commit).
+# push events fire reliably, and GitHub associates check runs with PRs by
+# head SHA so branch protection sees them as PR checks just the same.
 on:
   push:
-    branches: [main, dev]
-  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
